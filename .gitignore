@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+amazon_yorumlar_files/
+amazon_yorumlar.html
+iphone15_reviews_processed.csv

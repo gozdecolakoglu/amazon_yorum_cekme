@@ -1,0 +1,6 @@
+﻿model,train_accuracy,test_accuracy
+Naive Bayes,0.7625,0.75
+Lojistik Regresyon,0.75,0.75
+Support Vector Machine,0.9875,0.75
+Random Forest,1.0,0.85
+Türkçe BERT (dbmdz/bert-base-turkish-cased),0.75,0.75
