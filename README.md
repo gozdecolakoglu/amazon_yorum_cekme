@@ -62,10 +62,12 @@ Veri, sabit tohumla ve sınıf oranları korunarak %80 eğitim / %20 test
 kümelerine ayrılır. Naive Bayes, lojistik regresyon, doğrusal SVM ve Random
 Forest TF-IDF özellikleriyle eğitilir; Türkçe BERT
 (`dbmdz/bert-base-turkish-cased`) ince ayar yapılarak değerlendirilir. Eğitim
-ve test doğrulukları `classification_accuracy.csv` dosyasına yazılır.
-Bu sonuç dosyasında `model`, `train_accuracy` ve `test_accuracy` sütunları
-bulunur; doğruluk değerleri 0–1 aralığında kaydedilir. İşlenmiş yorumlar
-`iphone15_reviews_processed.csv` dosyasındadır.
+doğruluğu ile test doğruluğu, macro kesinlik (precision), duyarlılık (recall),
+F1 ve macro one-vs-rest ROC-AUC değerleri `classification_accuracy.csv`
+dosyasına yazılır. Değerler 0–1 aralığında kaydedilir. İşlenmiş yorumlar
+`iphone15_reviews_processed.csv` dosyasındadır. Bu ölçümler otomatik sözlük
+etiketlerine göre hesaplandığından insan doğrulamalı performans olarak
+yorumlanmamalıdır.
 
 Girdi, çıktı veya BERT modelini değiştirmek için:
 

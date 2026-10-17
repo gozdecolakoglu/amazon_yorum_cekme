@@ -6,7 +6,7 @@ nltk
 TurkishStemmer
 # Türkçe sözcüklerin biçim çözümlemesini ve lemma bulmayı yapmak için.
 zemberek-python==0.2.3
-# TF-IDF metin özelliklerini, klasik sınıflandırma modellerini, veri bölmeyi ve doğruluk ölçümünü sağlar.
+# TF-IDF metin özelliklerini, klasik sınıflandırma modellerini, veri bölmeyi ve değerlendirme metriklerini sağlar.
 scikit-learn
 # BERT modelinin tensör işlemleri, ince ayarı ve GPU/CPU üzerinde çalışması için.
 torch

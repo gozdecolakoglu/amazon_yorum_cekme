@@ -67,11 +67,14 @@ modellerin doğruluğu bu sözlükle üretilen etiketleri tahmin etme başarıs�
 Veri, sınıf oranlarını koruyan sabit tohumlu %80 eğitim / %20 test kümelerine
 ayrılır. Naive Bayes, lojistik regresyon, doğrusal SVM ve Random Forest
 TF-IDF özellikleriyle eğitilir. Türkçe BERT (`dbmdz/bert-base-turkish-cased`)
-ise eğitim kümesinde ince ayar yapar. Her modelin eğitim ve test doğruluğu
-terminalde gösterilir ve `classification_accuracy.csv` dosyasına yazılır.
-Bu dosyanın sütunları `model`, `train_accuracy` ve `test_accuracy` şeklindedir;
-doğruluklar 0–1 arası değer olarak saklanır (ör. `0.75`, yani %75).
-Sınıf adetleri ve yüzdeleri CSV'ye eklenmez.
+ise eğitim kümesinde ince ayar yapar. Her modelin eğitim doğruluğu ve test
+kümesindeki doğruluk, macro kesinlik (precision), macro duyarlılık (recall),
+macro F1 ve macro one-vs-rest ROC-AUC değerleri terminalde gösterilir ve
+`classification_accuracy.csv` dosyasına yazılır. CSV sütunları `model`,
+`train_accuracy`, `test_accuracy`, `test_precision`, `test_recall`, `test_f1`
+ve `test_roc_auc` şeklindedir. ROC-AUC her sınıf için one-vs-rest hesaplanır,
+sonuç sınıflar üzerinden macro ortalamadır. Değerler 0–1 arası saklanır
+(ör. `0.75`, yani %75). Sınıf adetleri ve yüzdeleri CSV'ye eklenmez.
 
 Mevcut 100 yorumluk veri kümesinde, sabit tohumlu bölmeden sonra eğitim
 kümesinde 60 olumlu (%75), 14 nötr (%17,5), 6 olumsuz (%7,5); test kümesinde
@@ -91,9 +94,17 @@ py -3.13 amazon_review_classification.py --input ".\iphone15_reviews_processed.c
 ```
 
 İlk BERT çalıştırmasında model dosyalarının Hugging Face'ten indirilmesi gerekir.
-Veri kümesinde yalnızca 100 yorum ve dengesiz sınıflar bulunduğundan doğruluk
-değerleri küçük test kümesinde hesaplanır; sonuçlar bu sınırlılıkla
-yorumlanmalıdır.
+Veri kümesinde yalnızca 100 yorum ve dengesiz sınıflar bulunduğundan ölçümler
+küçük test kümesinde hesaplanır; sonuçlar bu sınırlılıkla yorumlanmalıdır.
+
+## İşlem sonrası sonuç
+
+Yorum çıkarma/işleme ve sınıflandırma adımlarını tamamladıktan sonra
+`classification_accuracy.csv` dosyasındaki güncel metrikleri inceleyin.
+Mevcut proje verisi ve metriklerinden çıkarılan 200 kelimelik değerlendirme
+[Sonuçlar.md](Sonuçlar.md) dosyasındadır. Girdi verisi veya model sonuçları
+değiştiğinde bu değerlendirmedeki veri dağılımını ve metrikleri yeni CSV'ye göre
+güncelleyin; raporun otomatik olarak oluşturulmadığını dikkate alın.
 
 ## Testleri çalıştırma
 

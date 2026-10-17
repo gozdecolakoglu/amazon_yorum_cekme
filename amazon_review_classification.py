@@ -10,7 +10,7 @@ from typing import Sequence
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.svm import LinearSVC
@@ -161,7 +161,42 @@ def split_data(
     return x_train, x_test, y_train, y_test
 
 
-def _accuracy_result(
+def _evaluation_metrics(
+    y_true: Sequence[str],
+    predictions: Sequence[str],
+    scores: Sequence[Sequence[float]],
+    classes: Sequence[str],
+) -> dict[str, float]:
+    """Calculate macro classification metrics and one-vs-rest ROC-AUC."""
+    labels = tuple(sorted(set(y_true)))
+    if len(labels) < 2:
+        raise ValueError("ROC-AUC requires at least two classes in the evaluation data.")
+
+    class_indexes = {label: index for index, label in enumerate(classes)}
+    class_aucs = []
+    for label in labels:
+        if label not in class_indexes:
+            raise ValueError(f"Model scores do not include evaluation class: {label}.")
+        binary_labels = [int(actual == label) for actual in y_true]
+        class_scores = [row[class_indexes[label]] for row in scores]
+        class_aucs.append(roc_auc_score(binary_labels, class_scores))
+
+    return {
+        "test_accuracy": float(accuracy_score(y_true, predictions)),
+        "test_precision": float(
+            precision_score(y_true, predictions, labels=labels, average="macro", zero_division=0)
+        ),
+        "test_recall": float(
+            recall_score(y_true, predictions, labels=labels, average="macro", zero_division=0)
+        ),
+        "test_f1": float(
+            f1_score(y_true, predictions, labels=labels, average="macro", zero_division=0)
+        ),
+        "test_roc_auc": float(sum(class_aucs) / len(class_aucs)),
+    }
+
+
+def _model_result(
     model_name: str,
     model: object,
     x_train: object,
@@ -169,13 +204,28 @@ def _accuracy_result(
     x_test: object,
     y_test: Sequence[str],
 ) -> dict[str, str | float]:
-    # Eğitim ve test başarıları ayrı ölçülerek ezberleme ile genelleme farkı görülebilir.
+    # Eğitim doğruluğu ile test kümesindeki çoklu ölçümler, ezberleme ve genellemeyi ayırır.
     train_predictions = model.predict(x_train)  # type: ignore[attr-defined]
     test_predictions = model.predict(x_test)  # type: ignore[attr-defined]
+    if hasattr(model, "predict_proba"):
+        test_scores = model.predict_proba(x_test)  # type: ignore[attr-defined]
+        score_values = test_scores.tolist()
+    else:
+        test_scores = model.decision_function(x_test)  # type: ignore[attr-defined]
+        if len(model.classes_) == 2 and len(test_scores.shape) == 1:  # type: ignore[attr-defined]
+            score_values = [[-float(score), float(score)] for score in test_scores]
+        else:
+            score_values = test_scores.tolist()
+    metrics = _evaluation_metrics(
+        y_test,
+        test_predictions,
+        score_values,
+        model.classes_,  # type: ignore[attr-defined]
+    )
     return {
         "model": model_name,
         "train_accuracy": float(accuracy_score(y_train, train_predictions)),
-        "test_accuracy": float(accuracy_score(y_test, test_predictions)),
+        **metrics,
     }
 
 
@@ -209,9 +259,7 @@ def run_classical_models(
     results: list[dict[str, str | float]] = []
     for name, model in models:
         model.fit(train_vectors, y_train)
-        results.append(
-            _accuracy_result(name, model, train_vectors, y_train, test_vectors, y_test)
-        )
+        results.append(_model_result(name, model, train_vectors, y_train, test_vectors, y_test))
     return results
 
 
@@ -276,9 +324,13 @@ def run_turkish_bert(
             output.loss.backward()
             optimizer.step()
 
-    def predict(texts: Sequence[str], labels: Sequence[str]) -> list[str]:
+    def predict(
+        texts: Sequence[str],
+        labels: Sequence[str],
+    ) -> tuple[list[str], list[list[float]]]:
         dataset = encode(texts, labels)
         predictions: list[str] = []
+        scores: list[list[float]] = []
         # Değerlendirme sırasında gradyan hesaplamamak bellek ve çalışma süresini azaltır.
         model.eval()
         with torch.inference_mode():
@@ -290,14 +342,15 @@ def run_turkish_bert(
                 predictions.extend(
                     LABELS[index] for index in output.logits.argmax(dim=1).cpu().tolist()
                 )
-        return predictions
+                scores.extend(output.logits.cpu().tolist())
+        return predictions, scores
 
-    train_predictions = predict(x_train, y_train)
-    test_predictions = predict(x_test, y_test)
+    train_predictions, _ = predict(x_train, y_train)
+    test_predictions, test_scores = predict(x_test, y_test)
     return {
         "model": f"Türkçe BERT ({model_name})",
         "train_accuracy": float(accuracy_score(y_train, train_predictions)),
-        "test_accuracy": float(accuracy_score(y_test, test_predictions)),
+        **_evaluation_metrics(y_test, test_predictions, test_scores, LABELS),
     }
 
 
@@ -310,20 +363,35 @@ def write_results(
     with output_path.open("w", encoding="utf-8-sig", newline="") as output_file:
         writer = csv.DictWriter(
             output_file,
-            fieldnames=("model", "train_accuracy", "test_accuracy"),
+            fieldnames=(
+                "model",
+                "train_accuracy",
+                "test_accuracy",
+                "test_precision",
+                "test_recall",
+                "test_f1",
+                "test_roc_auc",
+            ),
         )
         writer.writeheader()
         writer.writerows(results)
 
 
 def print_results(results: Sequence[dict[str, str | float]]) -> None:
-    # Yüzde biçimi, CSV'deki 0–1 oranlarını okunabilir doğruluk değerlerine çevirir.
-    print(f"{'Model':<42} {'Eğitim doğruluğu':>18} {'Test doğruluğu':>16}")
+    # CSV'deki 0–1 oranları yüzde biçiminde gösterilerek modeller kolay karşılaştırılır.
+    print(
+        f"{'Model':<42} {'Eğitim doğruluğu':>18} {'Test doğruluğu':>16} "
+        f"{'Kesinlik':>11} {'Duyarlılık':>12} {'F1':>8} {'ROC-AUC':>10}"
+    )
     for result in results:
         print(
             f"{result['model']:<42} "
             f"{result['train_accuracy']:>17.2%} "
-            f"{result['test_accuracy']:>15.2%}"
+            f"{result['test_accuracy']:>15.2%} "
+            f"{result['test_precision']:>10.2%} "
+            f"{result['test_recall']:>11.2%} "
+            f"{result['test_f1']:>7.2%} "
+            f"{result['test_roc_auc']:>9.2%}"
         )
 
 
@@ -333,7 +401,7 @@ def main() -> None:
         description="Train sentiment classifiers on processed Amazon reviews."
     )
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT, help="Processed reviews CSV.")
-    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT, help="Accuracy results CSV.")
+    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT, help="Classification metrics CSV.")
     parser.add_argument(
         "--bert-model",
         default=DEFAULT_BERT_MODEL,
