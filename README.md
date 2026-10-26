@@ -158,9 +158,10 @@ py -3.13 export_dashboard_data.py
 ```
 
 `dashboard-data.json` üretilir ve panel bu dosyayı kullanır. Git ile dağıtımda
-güncel dosyayı commit edin; Vercel'de bu depoyu içe aktarın ve framework preset
-olarak **Other** seçin. Vercel proje ayarlarında build komutu ve output
-directory boş bırakılabilir. Terminalden dağıtmak için Node.js kurulu olmalı;
+güncel dosyayı commit edin; Vercel'de bu depoyu içe aktarın. `vercel.json`
+framework seçimini **Other** olarak zorlar; Vercel proje ayarlarında framework
+hala Python görünüyorsa **Other** seçin. Build komutu ve output directory boş
+bırakılabilir. Terminalden dağıtmak için Node.js kurulu olmalı;
 proje klasöründe ilk seferde `npx vercel`, yayınlamadan önce de
 `npx vercel --prod` komutunu çalıştırın. Yorum veya analiz verileri
 değiştiğinde yerel analizleri yeniden çalıştırın,

@@ -195,12 +195,13 @@ py -3.13 export_dashboard_data.py
 ```
 
 Komut, panelin kullandığı `dashboard-data.json` dosyasını oluşturur. Git tabanlı
-dağıtımda bu dosyayı commit edip Vercel'de depoyu **Other** framework preset'i
-ile içe aktarın; build komutu ve output directory boş kalabilir. Vercel
-konfigürasyonu ana sayfayı `dashboard.html` dosyasına, panel veri isteğini de
-`dashboard-data.json` dosyasına yönlendirir. Terminalden dağıtmak için Node.js
-kurulu olmalı; proje klasöründe ilk seferde `npx vercel`, üretim dağıtımında
-`npx vercel --prod` komutunu çalıştırın.
+dağıtımda bu dosyayı commit edip Vercel'de depoyu içe aktarın. `vercel.json`
+Python framework algılamasını kapatıp **Other** seçimini zorlar. Vercel proje
+ayarlarında framework hala Python görünüyorsa **Other** seçin; build komutu ve
+output directory boş kalabilir. Konfigürasyon ana sayfayı `dashboard.html`
+dosyasına, panel veri isteğini de `dashboard-data.json` dosyasına yönlendirir.
+Terminalden dağıtmak için Node.js kurulu olmalı; proje klasöründe ilk seferde
+`npx vercel`, üretim dağıtımında `npx vercel --prod` komutunu çalıştırın.
 
 Veri veya analizler değiştiğinde analizleri yeniden çalıştırıp dışa aktarma
 komutunu tekrarlayın; güncellenen JSON'u yeni dağıtımla yayımlayın. Bu dağıtım
