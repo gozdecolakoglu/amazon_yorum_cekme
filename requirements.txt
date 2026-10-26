@@ -12,3 +12,5 @@ scikit-learn
 torch
 # Önceden eğitilmiş Türkçe BERT modelini ve tokenizer'ını yükleyip sınıflandırma için kullanmak üzere.
 transformers
+# XLM-RoBERTa sıfır-atış tokenizer'ının SentencePiece sözlüğünü okumak için.
+sentencepiece

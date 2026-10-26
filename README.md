@@ -69,11 +69,107 @@ dosyasına yazılır. Değerler 0–1 aralığında kaydedilir. İşlenmiş yoru
 etiketlerine göre hesaplandığından insan doğrulamalı performans olarak
 yorumlanmamalıdır.
 
+### Makaledeki gibi hedef tabanlı sıfır-atış duygu analizi
+
+[Koruyan (2025)](https://doi.org/10.38016/jista.1543187), çok dilli
+`vicgalle/xlm-roberta-large-xnli-anli` modelini sıfır-atış NLI ve çok etiketli
+sınıflandırma ile kullanır; aynı yorumda birden çok kalite boyutunun olumlu
+veya olumsuz duygu puanlarını ayrı ayrı hesaplar. Bu projede restoran
+boyutları telefona uyarlanarak cihaz kalitesi/tasarım, performans/pil,
+ekran/kamera, satıcı/teslimat ve fiyat/değer olarak tanımlanmıştır:
+
+```powershell
+py -3.13 amazon_zero_shot_sentiment.py
+```
+
+İşlem, her hedef için olumlu ve olumsuz NLI puanlarını
+`iphone15_sentiment_analysis.csv` dosyasına yazar ve yerel grafik panelinde
+gösterir. Makaledeki gibi üç kelimeden kısa yorumlar bu analiz dışında tutulur.
+Varsayılan 0,50 eşiğini iki kutup da aşarsa hedef “karma”, ikisi de aşmazsa
+“hedef belirtilmedi” olarak görünür. NLI puanları kalibre edilmiş olasılık veya
+doğruluk değildir; bu veri için insan etiketli doğrulama yapılmadığından
+modelin gerçek doğruluğu ölçülmüş sayılmaz. Makaledeki restoran başarı
+ölçümleri bu iPhone sonuçlarıyla doğrudan karşılaştırılamaz.
+
+İlk çalıştırmada yaklaşık 2,24 GB model ağırlığı Hugging Face'ten indirilir;
+sonraki çalıştırmalar yerel önbelleği kullanır. Özel dosya, model veya eşik
+belirtilebilir:
+
+```powershell
+py -3.13 amazon_zero_shot_sentiment.py --input ".\iphone15_reviews_processed.csv" --output ".\iphone15_sentiment_analysis.csv" --model "vicgalle/xlm-roberta-large-xnli-anli" --threshold 0.5 --batch-size 2
+```
+
+Modellerin eğitim/test doğruluğu ve test metriklerini karşılaştıran grafik:
+
+![Sınıflandırma modellerinin başarı ölçütleri](classification_accuracy.svg)
+
+Stemming'in klasik TF-IDF modellerine etkisini ölçmek için:
+
+```powershell
+py -3.13 amazon_review_classification.py --compare-stemming
+```
+
+Karşılaştırma, aynı stratified %80/%20 bölmesini ve aynı yorumdan türetilmiş
+sözlük etiketlerini kullanır; iki koşulda stop-word temizliği sabit tutularak
+yalnızca kök bulma adımı açılıp kapatılır. Naive Bayes, lojistik regresyon,
+doğrusal SVM ve Random Forest test doğruluğu, macro kesinlik/duyarlılık/F1 ve
+ROC-AUC değerleri `classification_stemming_comparison.csv` dosyasına yazılır
+ve panelde yan yana gösterilir. Etiketler insan doğrulamalı olmadığından bu
+metrikler gerçek duygu başarımı değil, otomatik sözlük etiketlerine uyumdur.
+
+Grafiği CSV'den yeniden oluşturmak için:
+
+```powershell
+py -3.13 plot_classification_accuracy.py
+```
+
+### Yerel grafik paneli
+
+yorum puanları, sıfır-atış hedef duygu analizi, aylık yorum eğilimi, model
+karşılaştırmaları ve yorumların tamamını tarayıcıda görmek için önce analiz
+komutunu, ardından proje klasöründe paneli başlatın:
+
+```powershell
+py -3.13 amazon_zero_shot_sentiment.py
+py -3.13 dashboard.py
+```
+
+Tarayıcıda [http://127.0.0.1:8000](http://127.0.0.1:8000) adresini açın.
+Panel yalnızca bu bilgisayarda çalışır; grafik verilerini mevcut
+`iphone15_reviews_processed.csv`, `classification_accuracy.csv` ve
+`iphone15_sentiment_analysis.csv` dosyalarından okur. Yeni yorumlar geldiğinde
+sıfır-atış analizini yeniden çalıştırıp sayfayı yenileyin. Sunucuyu terminalde
+`Ctrl+C` ile kapatın.
+
 Girdi, çıktı veya BERT modelini değiştirmek için:
 
 ```powershell
 py -3.13 amazon_review_classification.py --input ".\iphone15_reviews_processed.csv" --output ".\classification_accuracy.csv" --bert-model "dbmdz/bert-base-turkish-cased"
 ```
+
+### Vercel'e dağıtım
+
+Vercel grafik panelini statik olarak yayımlar; yorum çıkarma, model eğitimi ve
+sıfır-atış analizi Vercel sunucusunda çalışmaz. Bu işlemleri yerelde çalıştırıp
+panel verisini dağıtımdan önce oluşturun:
+
+```powershell
+py -3.13 export_dashboard_data.py
+```
+
+`dashboard-data.json` üretilir ve panel bu dosyayı kullanır. Git ile dağıtımda
+güncel dosyayı commit edin; Vercel'de bu depoyu içe aktarın ve framework preset
+olarak **Other** seçin. Vercel proje ayarlarında build komutu ve output
+directory boş bırakılabilir. Terminalden dağıtmak için Node.js kurulu olmalı;
+proje klasöründe ilk seferde `npx vercel`, yayınlamadan önce de
+`npx vercel --prod` komutunu çalıştırın. Yorum veya analiz verileri
+değiştiğinde yerel analizleri yeniden çalıştırın,
+`py -3.13 export_dashboard_data.py` komutuyla JSON'u güncelleyin ve yeni
+dağıtım yapın.
+
+Dağıtım herkese açık bir URL oluşturabilir. JSON dosyası panelde gösterilen
+yorum metinlerini ve yorumcu adlarını içerir; dağıtmadan önce yayımlanmasını
+istediğiniz veriler olduğundan emin olun.
 
 ## Testler
 

@@ -20,6 +20,7 @@ from sklearn.linear_model import LogisticRegression
 # Girdi ve çıktı yolları, betiğin ek argüman verilmeden proje klasöründe çalışmasını sağlar.
 DEFAULT_INPUT = Path("iphone15_reviews_processed.csv")
 DEFAULT_OUTPUT = Path("classification_accuracy.csv")
+DEFAULT_STEMMING_OUTPUT = Path("classification_stemming_comparison.csv")
 DEFAULT_BERT_MODEL = "dbmdz/bert-base-turkish-cased"
 # Etiket sırası BERT sınıf numaralarıyla eşleştiğinden bütün BERT işlemlerinde sabit tutulur.
 LABELS = ("olumsuz", "nötr", "olumlu")
@@ -377,6 +378,92 @@ def write_results(
         writer.writerows(results)
 
 
+def run_stemming_comparison(
+    input_path: Path,
+) -> list[dict[str, str | float]]:
+    """Compare TF-IDF models with and without stemming on identical splits."""
+    if not input_path.is_file():
+        raise FileNotFoundError(f"Processed review CSV does not exist: {input_path}")
+
+    raw_texts: list[str] = []
+    without_stemming: list[str] = []
+    with_stemming: list[str] = []
+    labels: list[str] = []
+    required_fields = {"review", "stopword_removed_tokens", "stemmed_tokens"}
+    with input_path.open("r", encoding="utf-8-sig", newline="") as input_file:
+        reader = csv.DictReader(input_file)
+        if not reader.fieldnames or not required_fields.issubset(reader.fieldnames):
+            missing = required_fields.difference(reader.fieldnames or ())
+            raise ValueError(
+                "Input CSV must contain these columns for stemming comparison: "
+                + ", ".join(sorted(missing))
+            )
+        for row_number, row in enumerate(reader, start=2):
+            review = (row.get("review") or "").strip()
+            unstemmed_text = (row.get("stopword_removed_tokens") or "").strip()
+            stemmed_text = (row.get("stemmed_tokens") or "").strip()
+            if not review:
+                raise ValueError(f"Review text is empty at CSV row {row_number}.")
+            raw_texts.append(review)
+            without_stemming.append(unstemmed_text)
+            with_stemming.append(stemmed_text)
+            labels.append(sentiment_label(review))
+
+    if not labels:
+        raise ValueError(f"No review rows were found in {input_path}.")
+    if not any(without_stemming) or not any(with_stemming):
+        raise ValueError("Both preprocessing conditions must contain at least one token.")
+    if len(set(labels)) < 2:
+        raise ValueError("Review text must produce at least two sentiment classes.")
+
+    train_indexes, test_indexes = train_test_split(
+        list(range(len(labels))),
+        test_size=0.2,
+        random_state=42,
+        stratify=labels,
+    )
+    results: list[dict[str, str | float]] = []
+    for preprocessing, texts in (
+        ("Stemming yok", without_stemming),
+        ("Stemming var", with_stemming),
+    ):
+        model_results = run_classical_models(
+            [texts[index] for index in train_indexes],
+            [labels[index] for index in train_indexes],
+            [texts[index] for index in test_indexes],
+            [labels[index] for index in test_indexes],
+        )
+        results.extend(
+            {"preprocessing": preprocessing, **model_result}
+            for model_result in model_results
+        )
+    return results
+
+
+def write_stemming_comparison(
+    results: Sequence[dict[str, str | float]],
+    output_path: Path,
+) -> None:
+    """Save paired stemming metrics to a separate, dashboard-ready CSV."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8-sig", newline="") as output_file:
+        writer = csv.DictWriter(
+            output_file,
+            fieldnames=(
+                "preprocessing",
+                "model",
+                "train_accuracy",
+                "test_accuracy",
+                "test_precision",
+                "test_recall",
+                "test_f1",
+                "test_roc_auc",
+            ),
+        )
+        writer.writeheader()
+        writer.writerows(results)
+
+
 def print_results(results: Sequence[dict[str, str | float]]) -> None:
     # CSV'deki 0–1 oranları yüzde biçiminde gösterilerek modeller kolay karşılaştırılır.
     print(
@@ -384,8 +471,11 @@ def print_results(results: Sequence[dict[str, str | float]]) -> None:
         f"{'Kesinlik':>11} {'Duyarlılık':>12} {'F1':>8} {'ROC-AUC':>10}"
     )
     for result in results:
+        model_label = str(result["model"])
+        if "preprocessing" in result:
+            model_label = f"{model_label} ({result['preprocessing']})"
         print(
-            f"{result['model']:<42} "
+            f"{model_label:<42} "
             f"{result['train_accuracy']:>17.2%} "
             f"{result['test_accuracy']:>15.2%} "
             f"{result['test_precision']:>10.2%} "
@@ -403,11 +493,29 @@ def main() -> None:
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT, help="Processed reviews CSV.")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT, help="Classification metrics CSV.")
     parser.add_argument(
+        "--compare-stemming",
+        action="store_true",
+        help="Compare the four TF-IDF models with and without stemming, then exit.",
+    )
+    parser.add_argument(
+        "--stemming-output",
+        type=Path,
+        default=DEFAULT_STEMMING_OUTPUT,
+        help="CSV path for the stemming comparison.",
+    )
+    parser.add_argument(
         "--bert-model",
         default=DEFAULT_BERT_MODEL,
         help="Hugging Face Turkish BERT model identifier or local model directory.",
     )
     args = parser.parse_args()
+
+    if args.compare_stemming:
+        comparison = run_stemming_comparison(args.input)
+        write_stemming_comparison(comparison, args.stemming_output)
+        print_results(comparison)
+        print(f"\nStemming comparison saved: {args.stemming_output}")
+        return
 
     texts, labels = load_classification_data(args.input)
     x_train, x_test, y_train, y_test = split_data(texts, labels)

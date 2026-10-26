@@ -1,0 +1,7 @@
+*.py
+*.csv
+*.md
+*.svg
+requirements.txt
+amazon_yorumlar.html
+amazon_yorumlar_files/

@@ -97,6 +97,117 @@ py -3.13 amazon_review_classification.py --input ".\iphone15_reviews_processed.c
 Veri kümesinde yalnızca 100 yorum ve dengesiz sınıflar bulunduğundan ölçümler
 küçük test kümesinde hesaplanır; sonuçlar bu sınırlılıkla yorumlanmalıdır.
 
+## Stemming var/yok metrik karşılaştırması
+
+Stemming'in sınıflandırma sonuçlarına etkisini aynı dört TF-IDF modeli üzerinde
+ölç:
+
+```powershell
+py -3.13 amazon_review_classification.py --compare-stemming
+```
+
+Karşılaştırma `stopword_removed_tokens` (stemming yok) ve `stemmed_tokens`
+(stemming var) sütunlarını kullanır. İki girdi de aynı küçük harf, noktalama,
+token ve stop-word temizliği aşamalarından geçmiştir; farklı olan yalnızca
+stemming adımıdır. Yorumdan sözlükle çıkarılan etiketler, %80 eğitim/%20 test
+stratified ayırma ve sabit tohum her iki koşulda aynıdır. Naive Bayes,
+lojistik regresyon, doğrusal SVM ve Random Forest için eğitim/test doğruluğu,
+macro kesinlik/duyarlılık/F1 ve macro ROC-AUC hesaplanıp
+`classification_stemming_comparison.csv` dosyasına kaydedilir.
+
+Bu metrikler mevcut yorum sözlüğünün otomatik etiketlerini tahmin etme
+başarısını gösterir; insan etiketli gerçek duygu başarımı değildir. Mevcut
+100 yorumda 75 olumlu, 18 nötr, 7 olumsuz etiket vardır; test kümesinde sadece
+bir olumsuz yorum bulunması macro metriklerin güvenilirliğini sınırlar.
+Karşılaştırma CSV'si mevcutsa yerel panelde `Stemming etkisi: var / yok`
+grafiği, ayrıntılı metrikler ve farklar görünür. Yeni veri için karşılaştırma
+komutunu yeniden çalıştırıp paneli yenile.
+
+## Makaleye dayalı hedef tabanlı duygu analizi
+
+Koruyan'ın 2025 tarihli çalışması, restoran yorumlarında tek bir genel duygu
+etiketi yerine kalite boyutlarını hedef alan çok etiketli sıfır-atış analiz
+kullanır. Makalede Türkçe ve farklı dillerdeki yorumlara
+`vicgalle/xlm-roberta-large-xnli-anli` modeliyle NLI tabanlı aday sınıfları
+uygulanır; yemek kalitesi, servis, fiziksel ortam ve fiyat için olumlu ve
+olumsuz sınıflar ayrı puanlanır. Yorumlar üç kelimeden kısaysa analize alınmaz.
+Bu projede aynı yaklaşım telefon yorumlarına uyarlanmıştır: cihaz kalitesi ve
+tasarım, performans ve pil, ekran ve kamera, satıcı ve teslimat, fiyat ve değer.
+
+İşlenmiş yorum CSV'si üzerinden yeni analizi üret:
+
+```powershell
+py -3.13 amazon_zero_shot_sentiment.py
+```
+
+Betik her yorum/hedef için hem olumlu hem olumsuz sınıf puanını bağımsız hesaplar;
+bu nedenle aynı yorumda birden çok hedef bulunabilir ve bir hedef hem olumlu hem
+olumsuz olarak işaretlenebilir. Varsayılan 0,50 eşik, makaledeki eşikle aynıdır:
+iki puan da eşiği geçerse hedef “karma”, ikisi de geçmezse hedef belirtilmemiş
+kabul edilir. Üç kelimeden kısa yorumlar saklanır fakat hedef puanı üretilmez.
+Ham puanlar `iphone15_sentiment_analysis.csv` dosyasına yazılır. Puanlar NLI
+modelinin sınıf skorlarıdır; kalibre edilmiş olasılık veya bağımsız performans
+ölçümü değildir. Yorumların insan etiketli bir doğrulama kümesi bulunmadığından
+bu veri üzerinde accuracy/F1 iddiası yapılmaz.
+
+İlk çalıştırmada modelin yaklaşık 2,24 GB ağırlıkları Hugging Face'ten
+indirilir; indirme ve CPU çıkarımı zaman alabilir. Varsayılan batch boyutu 4'tür;
+bellek kısıtında küçültülebilir. Girdi, çıktı, model, eşik ve batch boyutu:
+
+```powershell
+py -3.13 amazon_zero_shot_sentiment.py --input ".\iphone15_reviews_processed.csv" --output ".\iphone15_sentiment_analysis.csv" --model "vicgalle/xlm-roberta-large-xnli-anli" --threshold 0.5 --batch-size 2
+```
+
+Bu yöntem, Koruyan'ın restoran çalışmasının sonuçlarını kopyalamaz: alan,
+hedefler ve veri değiştirildiği için bildirilen restoran doğruluk/F1 değerleri
+telefon yorumlarına genellenemez. Makale: [Restoran Müşteri Yorumlarının Duygu
+Analizi: Sıfır-Atış Metin Sınıflandırma Yaklaşımı, Koruyan (2025),
+DOI: 10.38016/jista.1543187](https://dergipark.org.tr/tr/download/article-file/4188972).
+
+## Yerel grafik paneli
+
+İşlenmiş yorum ve model CSV dosyalarındaki verileri tarayıcıda grafiklerle
+incelemek için proje klasöründe şu komutu çalıştır:
+
+```powershell
+py -3.13 amazon_review_classification.py --compare-stemming
+py -3.13 amazon_zero_shot_sentiment.py
+py -3.13 dashboard.py
+```
+
+Ardından [http://127.0.0.1:8000](http://127.0.0.1:8000) adresini aç. Panelde
+ortalama yıldız puanı, hedef bazında olumlu/olumsuz/karma sonuçlar, puan
+dağılımı, aylık yorum sayısı, sözlük tabanlı genel duygu karşılaştırması,
+model metrikleri, stemming var/yok karşılaştırması ve arama filtresi bulunan
+yorum listesi yer alır. Panel verileri yerel CSV'lerden her istekte okur;
+yorumlar değiştiğinde ilgili analizi yeniden çalıştırıp sayfayı yenile.
+Sunucuyu kapatmak için terminalde `Ctrl+C` tuşlarına bas.
+
+## Vercel'e dağıtım
+
+Vercel bu projede grafik panelini statik site olarak yayımlar. Yorum çıkarma,
+sınıflandırma ve sıfır-atış analizini önce yerel bilgisayarınızda çalıştırın;
+Vercel üzerinde Python analiz betikleri çalışmaz. Sonuçları statik JSON'a
+aktarmak için proje klasöründe:
+
+```powershell
+py -3.13 export_dashboard_data.py
+```
+
+Komut, panelin kullandığı `dashboard-data.json` dosyasını oluşturur. Git tabanlı
+dağıtımda bu dosyayı commit edip Vercel'de depoyu **Other** framework preset'i
+ile içe aktarın; build komutu ve output directory boş kalabilir. Vercel
+konfigürasyonu ana sayfayı `dashboard.html` dosyasına, panel veri isteğini de
+`dashboard-data.json` dosyasına yönlendirir. Terminalden dağıtmak için Node.js
+kurulu olmalı; proje klasöründe ilk seferde `npx vercel`, üretim dağıtımında
+`npx vercel --prod` komutunu çalıştırın.
+
+Veri veya analizler değiştiğinde analizleri yeniden çalıştırıp dışa aktarma
+komutunu tekrarlayın; güncellenen JSON'u yeni dağıtımla yayımlayın. Bu dağıtım
+yalnızca sabit bir veri anlık görüntüsüdür, canlı analiz yapmaz. JSON panelde
+gösterilen yorum metinlerini ve yorumcu adlarını içerdiğinden, herkese açık
+dağıtımdan önce bu verileri yayımlamak istediğinizi doğrulayın.
+
 ## İşlem sonrası sonuç
 
 Yorum çıkarma/işleme ve sınıflandırma adımlarını tamamladıktan sonra

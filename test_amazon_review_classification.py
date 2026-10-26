@@ -9,9 +9,11 @@ from amazon_review_classification import (
     _evaluation_metrics,
     load_classification_data,
     run_classical_models,
+    run_stemming_comparison,
     sentiment_label,
     split_data,
     write_results,
+    write_stemming_comparison,
 )
 
 
@@ -140,6 +142,66 @@ class AmazonReviewClassificationTests(unittest.TestCase):
 
         self.assertEqual(reader.fieldnames, expected_fields)
         self.assertEqual(row["test_roc_auc"], "0.9")
+
+    def test_compares_stemming_with_the_same_stratified_split(self) -> None:
+        with TemporaryDirectory() as directory:
+            input_path = Path(directory) / "processed.csv"
+            with input_path.open("w", encoding="utf-8-sig", newline="") as output_file:
+                writer = csv.DictWriter(
+                    output_file,
+                    fieldnames=("review", "stopword_removed_tokens", "stemmed_tokens"),
+                )
+                writer.writeheader()
+                for index in range(15):
+                    writer.writerow(
+                        {
+                            "review": f"Ürün güzel ve hızlı memnun {index}",
+                            "stopword_removed_tokens": f"guzel hizli memnun {index}",
+                            "stemmed_tokens": f"guzel hiz memnun {index}",
+                        }
+                    )
+                    writer.writerow(
+                        {
+                            "review": f"Ürün berbat ve bozuk kötü {index}",
+                            "stopword_removed_tokens": f"berbat bozuk kotu {index}",
+                            "stemmed_tokens": f"berbat bozuk kot {index}",
+                        }
+                    )
+                    writer.writerow(
+                        {
+                            "review": f"Telefon bugün geldi şimdi {index}",
+                            "stopword_removed_tokens": f"telefon bugun geldi simdi {index}",
+                            "stemmed_tokens": f"telefon bugun gel simdi {index}",
+                        }
+                    )
+
+            results = run_stemming_comparison(input_path)
+
+            self.assertEqual(len(results), 8)
+            for model in (
+                "Naive Bayes",
+                "Lojistik Regresyon",
+                "Support Vector Machine",
+                "Random Forest",
+            ):
+                pair = [row for row in results if row["model"] == model]
+                self.assertEqual(
+                    {row["preprocessing"] for row in pair},
+                    {"Stemming yok", "Stemming var"},
+                )
+            for row in results:
+                self.assertGreaterEqual(row["test_f1"], 0.0)
+                self.assertLessEqual(row["test_f1"], 1.0)
+
+            output_path = Path(directory) / "comparison.csv"
+            write_stemming_comparison(results, output_path)
+            with output_path.open(encoding="utf-8-sig", newline="") as source:
+                reader = csv.DictReader(source)
+                saved_rows = list(reader)
+
+        self.assertEqual(len(saved_rows), 8)
+        self.assertIn("preprocessing", reader.fieldnames or ())
+        self.assertIn("test_f1", reader.fieldnames or ())
 
 if __name__ == "__main__":
     unittest.main()
