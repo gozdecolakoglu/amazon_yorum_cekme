@@ -2,8 +2,38 @@ from __future__ import annotations
 
 import unittest
 
+from amazon_review_classification import TRAINING_SIZE_PROPORTIONS
 from amazon_zero_shot_sentiment import ASPECTS, DEFAULT_MODEL, analysis_fields
 from dashboard import build_dashboard_data, parse_rating, parse_review_month
+
+
+def make_training_size_rows() -> list[dict[str, str]]:
+    rows = []
+    metrics = (
+        "train_accuracy",
+        "test_accuracy",
+        "test_precision",
+        "test_recall",
+        "test_f1",
+        "test_roc_auc",
+    )
+    models = (
+        "Naive Bayes",
+        "Lojistik Regresyon",
+        "Support Vector Machine",
+        "Random Forest",
+    )
+    for training_size in TRAINING_SIZE_PROPORTIONS:
+        for index, model in enumerate(models):
+            row = {
+                "training_size": str(training_size),
+                "train_count": str(round(training_size * 100)),
+                "test_count": str(100 - round(training_size * 100)),
+                "model": model,
+            }
+            row.update({metric: str(0.5 + index * 0.05) for metric in metrics})
+            rows.append(row)
+    return rows
 
 
 def make_stemming_rows() -> list[dict[str, str]]:
@@ -145,6 +175,30 @@ class DashboardTests(unittest.TestCase):
                 [{"review": "Ürün çok güzel.", "rating": "", "date": ""}],
                 [],
                 stemming_rows=make_stemming_rows()[:1],
+            )
+
+    def test_includes_training_size_comparison_for_all_models(self) -> None:
+        data = build_dashboard_data(
+            [{"review": "Ürün çok güzel.", "rating": "", "date": ""} for _ in range(100)],
+            [],
+            training_size_rows=make_training_size_rows(),
+        )
+
+        comparison = data["training_size_comparison"]
+        self.assertEqual(
+            [split["training_size"] for split in comparison["splits"]],
+            list(TRAINING_SIZE_PROPORTIONS),
+        )
+        self.assertEqual(comparison["splits"][0]["train_count"], 60)
+        self.assertEqual(comparison["splits"][0]["test_count"], 40)
+        self.assertEqual(len(comparison["splits"][0]["models"]), 4)
+
+    def test_rejects_incomplete_training_size_comparison(self) -> None:
+        with self.assertRaisesRegex(ValueError, "dört klasik model"):
+            build_dashboard_data(
+                [{"review": "Ürün çok güzel.", "rating": "", "date": ""} for _ in range(100)],
+                [],
+                training_size_rows=make_training_size_rows()[:-1],
             )
 
 

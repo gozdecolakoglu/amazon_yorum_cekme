@@ -21,7 +21,9 @@ from sklearn.linear_model import LogisticRegression
 DEFAULT_INPUT = Path("iphone15_reviews_processed.csv")
 DEFAULT_OUTPUT = Path("classification_accuracy.csv")
 DEFAULT_STEMMING_OUTPUT = Path("classification_stemming_comparison.csv")
+DEFAULT_TRAINING_SIZE_OUTPUT = Path("classification_training_size_comparison.csv")
 DEFAULT_BERT_MODEL = "dbmdz/bert-base-turkish-cased"
+TRAINING_SIZE_PROPORTIONS = (0.6, 0.65, 0.7, 0.75, 0.8, 0.85)
 # Etiket sırası BERT sınıf numaralarıyla eşleştiğinden bütün BERT işlemlerinde sabit tutulur.
 LABELS = ("olumsuz", "nötr", "olumlu")
 TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
@@ -440,6 +442,57 @@ def run_stemming_comparison(
     return results
 
 
+def run_training_size_comparison(
+    texts: Sequence[str],
+    labels: Sequence[str],
+) -> list[dict[str, str | float | int]]:
+    """Evaluate classical models across stratified training-set proportions."""
+    results: list[dict[str, str | float | int]] = []
+    for training_size in TRAINING_SIZE_PROPORTIONS:
+        x_train, x_test, y_train, y_test = split_data(
+            texts,
+            labels,
+            test_size=1 - training_size,
+        )
+        model_results = run_classical_models(x_train, y_train, x_test, y_test)
+        results.extend(
+            {
+                "training_size": training_size,
+                "train_count": len(x_train),
+                "test_count": len(x_test),
+                **model_result,
+            }
+            for model_result in model_results
+        )
+    return results
+
+
+def write_training_size_comparison(
+    results: Sequence[dict[str, str | float | int]],
+    output_path: Path,
+) -> None:
+    """Save metrics for each training-set proportion to a dashboard-ready CSV."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8-sig", newline="") as output_file:
+        writer = csv.DictWriter(
+            output_file,
+            fieldnames=(
+                "training_size",
+                "train_count",
+                "test_count",
+                "model",
+                "train_accuracy",
+                "test_accuracy",
+                "test_precision",
+                "test_recall",
+                "test_f1",
+                "test_roc_auc",
+            ),
+        )
+        writer.writeheader()
+        writer.writerows(results)
+
+
 def write_stemming_comparison(
     results: Sequence[dict[str, str | float]],
     output_path: Path,
@@ -474,6 +527,8 @@ def print_results(results: Sequence[dict[str, str | float]]) -> None:
         model_label = str(result["model"])
         if "preprocessing" in result:
             model_label = f"{model_label} ({result['preprocessing']})"
+        if "training_size" in result:
+            model_label = f"{model_label} ({result['training_size']:.0%} eğitim)"
         print(
             f"{model_label:<42} "
             f"{result['train_accuracy']:>17.2%} "
@@ -504,6 +559,17 @@ def main() -> None:
         help="CSV path for the stemming comparison.",
     )
     parser.add_argument(
+        "--compare-training-size",
+        action="store_true",
+        help="Compare the four TF-IDF models across several training-set sizes, then exit.",
+    )
+    parser.add_argument(
+        "--training-size-output",
+        type=Path,
+        default=DEFAULT_TRAINING_SIZE_OUTPUT,
+        help="CSV path for the training-size comparison.",
+    )
+    parser.add_argument(
         "--bert-model",
         default=DEFAULT_BERT_MODEL,
         help="Hugging Face Turkish BERT model identifier or local model directory.",
@@ -518,6 +584,13 @@ def main() -> None:
         return
 
     texts, labels = load_classification_data(args.input)
+    if args.compare_training_size:
+        comparison = run_training_size_comparison(texts, labels)
+        write_training_size_comparison(comparison, args.training_size_output)
+        print_results(comparison)
+        print(f"\nTraining-size comparison saved: {args.training_size_output}")
+        return
+
     x_train, x_test, y_train, y_test = split_data(texts, labels)
     # Etiket adetleri özellikle dengesiz veri kümelerinde doğruluğu yorumlamaya yardım eder.
     print(f"Yorum: {len(texts)} | Eğitim: {len(x_train)} | Test: {len(x_test)}")

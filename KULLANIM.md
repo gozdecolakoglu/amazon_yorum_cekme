@@ -97,6 +97,34 @@ py -3.13 amazon_review_classification.py --input ".\iphone15_reviews_processed.c
 Veri kümesinde yalnızca 100 yorum ve dengesiz sınıflar bulunduğundan ölçümler
 küçük test kümesinde hesaplanır; sonuçlar bu sınırlılıkla yorumlanmalıdır.
 
+## Eğitim oranı deneyi
+
+Dört klasik TF-IDF modelini %60, %65, %70, %75, %80 ve %85 eğitim oranlarında
+karşılaştırmak için:
+
+```powershell
+py -3.13 amazon_review_classification.py --compare-training-size
+```
+
+Her oran için sınıf dağılımı korunmuş, sabit tohumlu ayrı bir eğitim/test
+bölmesi oluşturulur. Eğitim oranı değiştikçe test kümesinin boyutu da değişir;
+grafik ve tabloda bu adetler gösterilir. Naive Bayes, lojistik regresyon,
+doğrusal SVM ve Random Forest için eğitim/test doğruluğu, macro kesinlik,
+duyarlılık, F1 ve ROC-AUC değerleri
+`classification_training_size_comparison.csv` dosyasına yazılır. Türkçe BERT
+bu deneyde yer almaz.
+
+Sonuçları yerel panele veya Vercel'e aktarmak için ardından dışa aktarma
+komutunu çalıştırın:
+
+```powershell
+py -3.13 export_dashboard_data.py
+```
+
+Metrikler küçük veri kümesinde, her oran için farklı boyuttaki test kümelerinde
+ve otomatik sözlük etiketlerine karşı hesaplanır; bu karşılaştırma insan
+doğrulamalı gerçek duygu başarımını kanıtlamaz.
+
 ## Stemming var/yok metrik karşılaştırması
 
 Stemming'in sınıflandırma sonuçlarına etkisini aynı dört TF-IDF modeli üzerinde
@@ -171,6 +199,7 @@ incelemek için proje klasöründe şu komutu çalıştır:
 
 ```powershell
 py -3.13 amazon_review_classification.py --compare-stemming
+py -3.13 amazon_review_classification.py --compare-training-size
 py -3.13 amazon_zero_shot_sentiment.py
 py -3.13 dashboard.py
 ```
@@ -178,9 +207,9 @@ py -3.13 dashboard.py
 Ardından [http://127.0.0.1:8000](http://127.0.0.1:8000) adresini aç. Panelde
 ortalama yıldız puanı, hedef bazında olumlu/olumsuz/karma sonuçlar, puan
 dağılımı, aylık yorum sayısı, sözlük tabanlı genel duygu karşılaştırması,
-model metrikleri, stemming var/yok karşılaştırması ve arama filtresi bulunan
-yorum listesi yer alır. Panel verileri yerel CSV'lerden her istekte okur;
-yorumlar değiştiğinde ilgili analizi yeniden çalıştırıp sayfayı yenile.
+model metrikleri, eğitim oranı ve stemming karşılaştırmaları ile arama filtresi
+bulunan yorum listesi yer alır. Panel verileri yerel CSV'lerden her istekte
+okur; yorumlar değiştiğinde ilgili analizleri yeniden çalıştırıp sayfayı yenile.
 Sunucuyu kapatmak için terminalde `Ctrl+C` tuşlarına bas.
 
 ## Vercel'e dağıtım
@@ -191,6 +220,7 @@ Vercel üzerinde Python analiz betikleri çalışmaz. Sonuçları statik JSON'a
 aktarmak için proje klasöründe:
 
 ```powershell
+py -3.13 amazon_review_classification.py --compare-training-size
 py -3.13 export_dashboard_data.py
 ```
 

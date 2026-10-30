@@ -50,6 +50,7 @@
     .chart svg { display: block; width: 100%; height: 220px; overflow: visible; }
     #aspect-chart svg { height: 310px; }
     #model-chart svg { height: 270px; }
+    #training-size-chart svg { height: 340px; }
     .donut-layout { display: flex; min-height: 220px; align-items: center; justify-content: center; gap: clamp(22px, 7vw, 70px); }
     .donut { position: relative; display: grid; width: 158px; height: 158px; flex: 0 0 158px; place-items: center; border-radius: 50%; }
     .donut::after { position: absolute; width: 98px; height: 98px; border-radius: 50%; background: white; content: ""; }
@@ -158,6 +159,17 @@
       <article class="panel wide">
         <div class="panel-heading">
           <div>
+            <h2>Eğitim oranının model başarısına etkisi</h2>
+            <p class="panel-note" id="training-size-note">Eğitim oranı karşılaştırması bekleniyor.</p>
+          </div>
+        </div>
+        <div class="chart" id="training-size-chart"></div>
+        <p class="panel-note" id="training-size-explanation"></p>
+        <div class="comparison-table-wrap" id="training-size-table"></div>
+      </article>
+      <article class="panel wide">
+        <div class="panel-heading">
+          <div>
             <h2>Stemming etkisi: var / yok</h2>
             <p class="panel-note" id="stemming-note">Karşılaştırma sonuçları bekleniyor.</p>
           </div>
@@ -184,7 +196,7 @@
         <div class="pagination"><span id="page-label"></span><div><button id="previous-page" type="button">Önceki</button> <button id="next-page" type="button">Sonraki</button></div></div>
       </article>
     </section>
-    <footer>Not: Duygu etiketleri yorum metninden türetilen otomatik sözlük etiketleridir. Model ölçümleri insan tarafından doğrulanmış etiketlere göre değil, bu otomatik etiketlere göre hesaplanır; sonuçları bu sınırlılıkla değerlendirin.</footer>
+    <footer></footer>
   </main>
   <script>
     const palette = { olumlu: "#15a88a", nötr: "#ed9c35", olumsuz: "#e46c76" };
@@ -376,6 +388,104 @@
       });
       target.append(legend);
     }
+    function renderTrainingSizeComparison(comparison) {
+      const target = document.querySelector("#training-size-chart");
+      const tableTarget = document.querySelector("#training-size-table");
+      const note = document.querySelector("#training-size-note");
+      const explanation = document.querySelector("#training-size-explanation");
+      if (!comparison) {
+        note.textContent = "Eğitim oranı sonuçları henüz oluşturulmadı.";
+        target.innerHTML = '<div class="empty">Sonuçları üretmek için py -3.13 amazon_review_classification.py --compare-training-size komutunu çalıştırın.</div>';
+        explanation.textContent = "";
+        tableTarget.replaceChildren();
+        return;
+      }
+      const firstSplit = comparison.splits[0];
+      const lastSplit = comparison.splits[comparison.splits.length - 1];
+      note.textContent = `${formatNumber(comparison.splits.length)} eğitim oranı · dört klasik TF-IDF modeli · ${comparison.label_source}`;
+      explanation.textContent = `Her noktada gösterilen doğruluk ve macro F1, o eğitim oranına ait ayrı, sınıf oranlarını koruyan test kümesinde ölçülür. Eğitim oranı yükseldikçe test kümesi küçülür (${formatNumber(firstSplit.test_count)} yorumdan ${formatNumber(lastSplit.test_count)} yoruma); bu nedenle sonuçlar eğitim verisi miktarının yanı sıra farklı test örneklemlerinden de etkilenir. Etiketler otomatik sözlük etiketleridir; bu deney gerçek duygu başarımını kanıtlamaz.`;
+
+      const width = 900, height = 330, left = 80, right = 825, top = 20, bottom = 265;
+      const x = index => left + (right - left) * index / Math.max(comparison.splits.length - 1, 1);
+      const y = value => bottom - (bottom - top) * value;
+      const colors = ["#5865e8", "#15a88a", "#ed9c35", "#d85b72"];
+      const svg = svgElement("svg", { viewBox: `0 0 ${width} ${height}`, role: "img", "aria-label": "Eğitim oranına göre dört klasik modelin test doğruluğu ve macro F1 karşılaştırması" });
+      for (let tick = 0; tick <= 4; tick++) {
+        const value = tick / 4, yPosition = y(value);
+        svg.append(svgElement("line", { x1: left, y1: yPosition, x2: right, y2: yPosition, stroke: "#edf0f5" }));
+        textNode(svg, left - 12, yPosition + 4, `${tick * 25}%`, { anchor: "end", size: 10 });
+      }
+      comparison.splits.forEach((split, index) => {
+        textNode(svg, x(index), bottom + 20, `${formatNumber(split.training_size * 100)}%`, { anchor: "middle", size: 10 });
+      });
+      comparison.splits[0].models.forEach((model, modelIndex) => {
+        for (const [metric, dashed] of [["test_accuracy", false], ["test_f1", true]]) {
+          const points = comparison.splits.map((split, index) => {
+            const splitModel = split.models.find(item => item.model === model.model);
+            return `${x(index)},${y(splitModel[metric])}`;
+          }).join(" ");
+          svg.append(svgElement("polyline", {
+            points,
+            fill: "none",
+            stroke: colors[modelIndex],
+            "stroke-width": dashed ? 2 : 3,
+            "stroke-dasharray": dashed ? "5 4" : "",
+            opacity: dashed ? ".55" : "1"
+          }));
+          comparison.splits.forEach((split, index) => {
+            const splitModel = split.models.find(item => item.model === model.model);
+            svg.append(svgElement("circle", {
+              cx: x(index),
+              cy: y(splitModel[metric]),
+              r: dashed ? 3 : 4,
+              fill: dashed ? "#fff" : colors[modelIndex],
+              stroke: colors[modelIndex],
+              "stroke-width": 2
+            }));
+          });
+        }
+      });
+      target.replaceChildren(svg);
+      const legend = document.createElement("div"); legend.className = "model-legend";
+      comparison.splits[0].models.forEach((model, index) => {
+        const item = document.createElement("span"); item.className = "model-legend-item";
+        const dot = document.createElement("span"); dot.className = "model-legend-dot"; dot.style.background = colors[index];
+        const caption = document.createElement("span"); caption.textContent = model.model;
+        item.append(dot, caption); legend.append(item);
+      });
+      for (const [label, dashed] of [["Test doğruluğu", false], ["Macro F1", true]]) {
+        const item = document.createElement("span"); item.className = "model-legend-item";
+        const line = document.createElement("span"); line.style.cssText = `width:16px;border-top:2px ${dashed ? "dashed" : "solid"} #59647a;${dashed ? "opacity:.55;" : ""}`;
+        const caption = document.createElement("span"); caption.textContent = label;
+        item.append(line, caption); legend.append(item);
+      }
+      target.append(legend);
+
+      const table = document.createElement("table"); table.className = "comparison-table";
+      const header = document.createElement("thead");
+      const headingRow = document.createElement("tr");
+      ["Eğitim oranı", "Model", "Eğitim/test adedi", "Test doğruluğu", "Kesinlik (macro)", "Duyarlılık (macro)", "F1 (macro)", "ROC-AUC (macro)"].forEach(label => {
+        const cell = document.createElement("th"); cell.textContent = label; headingRow.append(cell);
+      });
+      header.append(headingRow);
+      const body = document.createElement("tbody");
+      comparison.splits.forEach(split => {
+        split.models.forEach(model => {
+          const row = document.createElement("tr");
+          for (const value of [
+            `%${formatNumber(split.training_size * 100)}`,
+            model.model,
+            `${formatNumber(split.train_count)} / ${formatNumber(split.test_count)}`,
+            ...["test_accuracy", "test_precision", "test_recall", "test_f1", "test_roc_auc"].map(metric => `%${formatNumber(model[metric] * 100, 1)}`)
+          ]) {
+            const cell = document.createElement("td"); cell.textContent = value; row.append(cell);
+          }
+          body.append(row);
+        });
+      });
+      table.append(header, body);
+      tableTarget.replaceChildren(table);
+    }
     function renderStemmingComparison(comparison) {
       const target = document.querySelector("#stemming-chart");
       const tableTarget = document.querySelector("#stemming-table");
@@ -517,7 +627,8 @@
         renderSummary(data); renderAspectAnalysis(data.aspect_analysis);
         renderSentiments(data.sentiments, data.summary.review_count);
         renderRatings(data.ratings, data.summary.rated_count); renderTimeline(data.months);
-        renderModels(data.models); renderStemmingComparison(data.stemming_comparison);
+        renderModels(data.models); renderTrainingSizeComparison(data.training_size_comparison);
+        renderStemmingComparison(data.stemming_comparison);
         allReviews = data.reviews;
         renderReviews();
         document.querySelector("#search").addEventListener("input", () => { currentPage = 0; renderReviews(); });

@@ -10,10 +10,12 @@ from amazon_review_classification import (
     load_classification_data,
     run_classical_models,
     run_stemming_comparison,
+    run_training_size_comparison,
     sentiment_label,
     split_data,
     write_results,
     write_stemming_comparison,
+    write_training_size_comparison,
 )
 
 
@@ -202,6 +204,69 @@ class AmazonReviewClassificationTests(unittest.TestCase):
         self.assertEqual(len(saved_rows), 8)
         self.assertIn("preprocessing", reader.fieldnames or ())
         self.assertIn("test_f1", reader.fieldnames or ())
+
+    def test_compares_classical_models_across_training_sizes(self) -> None:
+        texts = [
+            f"{sentiment} ürün yorum {index}"
+            for sentiment in ("olumsuz", "nötr", "olumlu")
+            for index in range(20)
+        ]
+        labels = [
+            sentiment
+            for sentiment in ("olumsuz", "nötr", "olumlu")
+            for _ in range(20)
+        ]
+
+        results = run_training_size_comparison(texts, labels)
+
+        self.assertEqual(len(results), 24)
+        for training_size in (0.6, 0.65, 0.7, 0.75, 0.8, 0.85):
+            split_results = [
+                row for row in results if row["training_size"] == training_size
+            ]
+            expected_split = split_data(
+                texts,
+                labels,
+                test_size=1 - training_size,
+            )
+            self.assertEqual(len(split_results), 4)
+            self.assertEqual(
+                {row["train_count"] for row in split_results},
+                {len(expected_split[0])},
+            )
+            self.assertEqual(
+                {row["test_count"] for row in split_results},
+                {len(expected_split[1])},
+            )
+
+    def test_writes_training_size_metrics_to_csv(self) -> None:
+        with TemporaryDirectory() as directory:
+            output_path = Path(directory) / "training-size.csv"
+            write_training_size_comparison(
+                [
+                    {
+                        "training_size": 0.6,
+                        "train_count": 60,
+                        "test_count": 40,
+                        "model": "Model",
+                        "train_accuracy": 1.0,
+                        "test_accuracy": 0.8,
+                        "test_precision": 0.7,
+                        "test_recall": 0.6,
+                        "test_f1": 0.65,
+                        "test_roc_auc": 0.9,
+                    }
+                ],
+                output_path,
+            )
+
+            with output_path.open(encoding="utf-8-sig", newline="") as input_file:
+                reader = csv.DictReader(input_file)
+                row = next(reader)
+
+        self.assertEqual(reader.fieldnames[0:4], ["training_size", "train_count", "test_count", "model"])
+        self.assertEqual(row["training_size"], "0.6")
+        self.assertEqual(row["test_count"], "40")
 
 if __name__ == "__main__":
     unittest.main()

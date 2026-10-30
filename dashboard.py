@@ -13,7 +13,10 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from amazon_review_classification import sentiment_label
+from amazon_review_classification import (
+    TRAINING_SIZE_PROPORTIONS,
+    sentiment_label,
+)
 from amazon_zero_shot_sentiment import ASPECTS, analysis_fields
 from plot_classification_accuracy import METRICS, read_scores
 
@@ -23,7 +26,14 @@ DEFAULT_REVIEWS = PROJECT_DIR / "iphone15_reviews_processed.csv"
 DEFAULT_METRICS = PROJECT_DIR / "classification_accuracy.csv"
 DEFAULT_ASPECT_ANALYSIS = PROJECT_DIR / "iphone15_sentiment_analysis.csv"
 DEFAULT_STEMMING_COMPARISON = PROJECT_DIR / "classification_stemming_comparison.csv"
+DEFAULT_TRAINING_SIZE_COMPARISON = PROJECT_DIR / "classification_training_size_comparison.csv"
 STEMMING_PREPROCESSING = ("Stemming yok", "Stemming var")
+CLASSIFICATION_MODEL_NAMES = (
+    "Naive Bayes",
+    "Lojistik Regresyon",
+    "Support Vector Machine",
+    "Random Forest",
+)
 CLASSIFICATION_METRICS = (
     "train_accuracy",
     "test_accuracy",
@@ -96,6 +106,7 @@ def build_dashboard_data(
     score_rows: list[tuple[str, dict[str, float]]],
     aspect_rows: list[dict[str, str]] | None = None,
     stemming_rows: list[dict[str, str]] | None = None,
+    training_size_rows: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     """Aggregate review and model CSV data into the dashboard's JSON payload."""
     ratings: Counter[int] = Counter()
@@ -110,6 +121,7 @@ def build_dashboard_data(
     aspect_model = None
     aspect_threshold = None
     stemming_comparison = None
+    training_size_comparison = None
 
     if stemming_rows is not None:
         comparison_by_model: dict[str, dict[str, dict[str, float]]] = {}
@@ -162,6 +174,73 @@ def build_dashboard_data(
             ],
             "row_count": len(stemming_rows),
             "test_count": round(len(review_rows) * 0.2),
+            "label_source": "Yorum metninden türetilen sözlük etiketleri",
+        }
+
+    if training_size_rows is not None:
+        results_by_size: dict[float, dict[str, Any]] = {}
+        for row_number, comparison in enumerate(training_size_rows, start=2):
+            try:
+                training_size = float(comparison["training_size"])
+                train_count = int(comparison["train_count"])
+                test_count = int(comparison["test_count"])
+            except (KeyError, TypeError, ValueError) as error:
+                raise ValueError(
+                    f"Eğitim oranı karşılaştırma CSV'sinde {row_number}. satırın oranı/adetleri geçersiz."
+                ) from error
+            if training_size not in TRAINING_SIZE_PROPORTIONS:
+                raise ValueError(
+                    f"Eğitim oranı karşılaştırma CSV'sinde {row_number}. satırın eğitim oranı desteklenmiyor."
+                )
+            if train_count + test_count != len(review_rows):
+                raise ValueError(
+                    f"Eğitim oranı karşılaştırma CSV'sinde {row_number}. satırın eğitim/test adetleri yorum sayısıyla uyuşmuyor."
+                )
+            split = results_by_size.setdefault(
+                training_size,
+                {
+                    "training_size": training_size,
+                    "train_count": train_count,
+                    "test_count": test_count,
+                    "models": {},
+                },
+            )
+            if split["train_count"] != train_count or split["test_count"] != test_count:
+                raise ValueError("Eğitim oranı karşılaştırma CSV'sinde aynı oran için adetler tutarsız.")
+            model = (comparison.get("model") or "").strip()
+            if model not in CLASSIFICATION_MODEL_NAMES or model in split["models"]:
+                raise ValueError(
+                    f"Eğitim oranı karşılaştırma CSV'sinde {row_number}. satırın model adı geçersiz veya tekrarlı."
+                )
+            metrics: dict[str, float] = {}
+            for metric in CLASSIFICATION_METRICS:
+                try:
+                    value = float(comparison[metric])
+                except (KeyError, TypeError, ValueError) as error:
+                    raise ValueError(
+                        f"Eğitim oranı karşılaştırma CSV'sinde {row_number}. satırdaki {metric} değeri geçersiz."
+                    ) from error
+                if not 0 <= value <= 1:
+                    raise ValueError(f"{metric} değeri 0 ile 1 arasında olmalıdır.")
+                metrics[metric] = value
+            split["models"][model] = metrics
+
+        if set(results_by_size) != set(TRAINING_SIZE_PROPORTIONS):
+            raise ValueError("Eğitim oranı karşılaştırma CSV'sinde altı eğitim oranının tamamı bulunmalı.")
+        for training_size, split in results_by_size.items():
+            if set(split["models"]) != set(CLASSIFICATION_MODEL_NAMES):
+                raise ValueError(
+                    f"%{training_size:.0%} eğitim oranında dört klasik modelin tamamı bulunmalı."
+                )
+            split["models"] = [
+                {"model": model, **split["models"][model]}
+                for model in CLASSIFICATION_MODEL_NAMES
+            ]
+        training_size_comparison = {
+            "splits": [
+                results_by_size[training_size]
+                for training_size in TRAINING_SIZE_PROPORTIONS
+            ],
             "label_source": "Yorum metninden türetilen sözlük etiketleri",
         }
 
@@ -316,6 +395,7 @@ def build_dashboard_data(
         "metric_labels": [{"key": key, "label": label} for key, label in METRICS],
         "aspect_analysis": aspect_analysis,
         "stemming_comparison": stemming_comparison,
+        "training_size_comparison": training_size_comparison,
         "reviews": reviews,
     }
 
@@ -325,6 +405,7 @@ def load_dashboard_data(
     metrics_path: Path,
     aspect_analysis_path: Path = DEFAULT_ASPECT_ANALYSIS,
     stemming_comparison_path: Path = DEFAULT_STEMMING_COMPARISON,
+    training_size_comparison_path: Path = DEFAULT_TRAINING_SIZE_COMPARISON,
 ) -> dict[str, Any]:
     if not reviews_path.is_file():
         raise FileNotFoundError(f"Yorum CSV dosyası bulunamadı: {reviews_path}")
@@ -359,11 +440,28 @@ def load_dashboard_data(
                     "Stemming karşılaştırma CSV'sinde sütunlar eksik; karşılaştırmayı yeniden çalıştırın."
                 )
             stemming_rows = list(reader)
+    training_size_rows = None
+    if training_size_comparison_path.is_file():
+        with training_size_comparison_path.open(encoding="utf-8-sig", newline="") as source:
+            reader = csv.DictReader(source)
+            required_fields = {
+                "training_size",
+                "train_count",
+                "test_count",
+                "model",
+                *CLASSIFICATION_METRICS,
+            }
+            if not reader.fieldnames or not required_fields.issubset(reader.fieldnames):
+                raise ValueError(
+                    "Eğitim oranı karşılaştırma CSV'sinde sütunlar eksik; karşılaştırmayı yeniden çalıştırın."
+                )
+            training_size_rows = list(reader)
     return build_dashboard_data(
         review_rows,
         read_scores(metrics_path),
         aspect_rows,
         stemming_rows,
+        training_size_rows,
     )
 
 
