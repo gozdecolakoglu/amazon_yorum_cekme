@@ -343,6 +343,22 @@ class DashboardTests(unittest.TestCase):
                 smote_rows=make_smote_rows()[:1],
             )
 
+    def test_dashboard_html_has_sidebar_tabs_for_six_analysis_sections(self) -> None:
+        from pathlib import Path
+
+        html = (Path(__file__).resolve().parent / "dashboard.html").read_text(encoding="utf-8")
+        expected_panels = (
+            "stemming-panel",
+            "smote-panel",
+            "bow-tfidf-panel",
+            "aspect-panel",
+            "models-panel",
+            "training-size-panel",
+        )
+        for panel_id in expected_panels:
+            self.assertIn(f'data-panel="{panel_id}"', html)
+            self.assertIn(f'id="{panel_id}"', html)
+
 
 if __name__ == "__main__":
     unittest.main()

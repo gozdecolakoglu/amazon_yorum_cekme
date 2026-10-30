@@ -130,6 +130,174 @@
       gap: 17px;
     }
 
+    .explorer-layout {
+      display: grid;
+      grid-template-columns: 295px minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+      margin-bottom: 18px;
+    }
+
+    .explorer-sidebar {
+      position: sticky;
+      top: 20px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      padding: 16px 14px;
+    }
+
+    .sidebar-header {
+      padding: 2px 6px 12px;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 10px;
+    }
+
+    .sidebar-eyebrow {
+      color: var(--blue);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .11em;
+      text-transform: uppercase;
+    }
+
+    .sidebar-title {
+      margin: 4px 0 2px;
+      font-size: 14px;
+      font-weight: 750;
+      color: var(--ink);
+    }
+
+    .sidebar-subtitle {
+      margin: 0;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .sidebar-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .sidebar-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      width: 100%;
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: #fafbfe;
+      color: var(--ink);
+      text-align: left;
+      cursor: pointer;
+      transition: all .16s ease;
+    }
+
+    .sidebar-btn:hover {
+      border-color: #cbd5e1;
+      background: #f1f5f9;
+      transform: translateX(2px);
+    }
+
+    .sidebar-btn.active {
+      border-color: var(--blue);
+      background: linear-gradient(135deg, rgba(88, 101, 232, 0.10), rgba(21, 168, 138, 0.05));
+      box-shadow: 0 4px 12px rgba(88, 101, 232, 0.08);
+    }
+
+    .sidebar-btn-left {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .sidebar-step {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      flex: 0 0 22px;
+      border-radius: 7px;
+      background: #eef1f8;
+      color: #59647a;
+      font-size: 11px;
+      font-weight: 750;
+      margin-top: 1px;
+      transition: all .16s ease;
+    }
+
+    .sidebar-btn.active .sidebar-step {
+      background: var(--blue);
+      color: #fff;
+    }
+
+    .sidebar-btn-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .sidebar-btn-label {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 1.3;
+    }
+
+    .sidebar-btn.active .sidebar-btn-label {
+      color: #3f4cd6;
+    }
+
+    .sidebar-btn-desc {
+      font-size: 10.5px;
+      color: var(--muted);
+      line-height: 1.25;
+    }
+
+    .sidebar-chevron {
+      color: #94a3b8;
+      font-size: 15px;
+      font-weight: 700;
+      flex: 0 0 auto;
+      transition: transform .16s ease, color .16s ease;
+    }
+
+    .sidebar-btn.active .sidebar-chevron {
+      color: var(--blue);
+      transform: translateX(2px);
+    }
+
+    .explorer-content {
+      min-width: 0;
+    }
+
+    .analysis-panel {
+      display: none;
+    }
+
+    .analysis-panel.active {
+      display: block;
+      animation: panelFadeIn .18s ease-out;
+    }
+
+    @keyframes panelFadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(4px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
     .panel {
       min-width: 0;
       padding: 20px 21px;
@@ -671,6 +839,21 @@
       line-height: 1.6;
     }
 
+    @media (max-width: 960px) {
+      .explorer-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .explorer-sidebar {
+        position: static;
+      }
+
+      .sidebar-nav {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
     @media (max-width: 850px) {
       .app {
         padding: 25px 20px 35px;
@@ -693,6 +876,10 @@
     @media (max-width: 520px) {
       .app {
         padding: 20px 13px 28px;
+      }
+
+      .sidebar-nav {
+        grid-template-columns: 1fr;
       }
 
       header {
@@ -754,129 +941,290 @@
       <span class="live">kodlamak · com</span>
     </header>
     <section class="cards" id="summary" aria-label="Genel bakış"></section>
+    <section class="explorer-layout" aria-label="Analiz başlıkları">
+      <aside class="explorer-sidebar">
+        <div class="sidebar-header">
+          <div class="sidebar-eyebrow">Model &amp; NLP Deneyleri</div>
+          <h2 class="sidebar-title">Analiz Başlıkları</h2>
+          <p class="sidebar-subtitle">Başlığa tıklayarak ilgili analizi görüntüleyin</p>
+        </div>
+        <nav class="sidebar-nav" id="analysis-sidebar-nav" role="tablist" aria-label="Analiz bölümleri">
+          <button type="button" class="sidebar-btn active" role="tab" aria-selected="true" aria-controls="stemming-panel" data-panel="stemming-panel">
+            <span class="sidebar-btn-left">
+              <span class="sidebar-step">1</span>
+              <span class="sidebar-btn-text">
+                <span class="sidebar-btn-label">Stemming etkisi: var / yok</span>
+                <span class="sidebar-btn-desc">Kelime kökü normalleştirme karşılaştırması</span>
+              </span>
+            </span>
+            <span class="sidebar-chevron" aria-hidden="true">›</span>
+          </button>
+          <button type="button" class="sidebar-btn" role="tab" aria-selected="false" aria-controls="smote-panel" data-panel="smote-panel">
+            <span class="sidebar-btn-left">
+              <span class="sidebar-step">2</span>
+              <span class="sidebar-btn-text">
+                <span class="sidebar-btn-label">SMOTE</span>
+                <span class="sidebar-btn-desc">Sentetik azınlık aşırı örnekleme analizi</span>
+              </span>
+            </span>
+            <span class="sidebar-chevron" aria-hidden="true">›</span>
+          </button>
+          <button type="button" class="sidebar-btn" role="tab" aria-selected="false" aria-controls="bow-tfidf-panel" data-panel="bow-tfidf-panel">
+            <span class="sidebar-btn-left">
+              <span class="sidebar-step">3</span>
+              <span class="sidebar-btn-text">
+                <span class="sidebar-btn-label">Bag of Words – TF-IDF</span>
+                <span class="sidebar-btn-desc">Kelime sıklığı ve ağırlıklandırma etkisi</span>
+              </span>
+            </span>
+            <span class="sidebar-chevron" aria-hidden="true">›</span>
+          </button>
+          <button type="button" class="sidebar-btn" role="tab" aria-selected="false" aria-controls="aspect-panel" data-panel="aspect-panel">
+            <span class="sidebar-btn-left">
+              <span class="sidebar-step">4</span>
+              <span class="sidebar-btn-text">
+                <span class="sidebar-btn-label">Hedef tabanlı duygu analizi</span>
+                <span class="sidebar-btn-desc">Özellik bazlı sıfır-atış NLI sonuçları</span>
+              </span>
+            </span>
+            <span class="sidebar-chevron" aria-hidden="true">›</span>
+          </button>
+          <button type="button" class="sidebar-btn" role="tab" aria-selected="false" aria-controls="models-panel" data-panel="models-panel">
+            <span class="sidebar-btn-left">
+              <span class="sidebar-step">5</span>
+              <span class="sidebar-btn-text">
+                <span class="sidebar-btn-label">Sınıflandırma modelleri</span>
+                <span class="sidebar-btn-desc">Klasik modeller ve Türkçe BERT metrikleri</span>
+              </span>
+            </span>
+            <span class="sidebar-chevron" aria-hidden="true">›</span>
+          </button>
+          <button type="button" class="sidebar-btn" role="tab" aria-selected="false" aria-controls="training-size-panel" data-panel="training-size-panel">
+            <span class="sidebar-btn-left">
+              <span class="sidebar-step">6</span>
+              <span class="sidebar-btn-text">
+                <span class="sidebar-btn-label">Eğitim oranının model başarısına etkisi</span>
+                <span class="sidebar-btn-desc">%60 – %85 eğitim/test bölmesi karşılaştırması</span>
+              </span>
+            </span>
+            <span class="sidebar-chevron" aria-hidden="true">›</span>
+          </button>
+        </nav>
+      </aside>
+      <div class="explorer-content" id="analysis-panels">
+        <article class="panel analysis-panel active" id="stemming-panel" role="tabpanel">
+          <div class="panel-heading">
+            <div>
+              <h2>Stemming etkisi: var / yok</h2>
+              <p class="panel-note" id="stemming-note">Karşılaştırma sonuçları bekleniyor.</p>
+            </div>
+          </div>
+          <div class="chart" id="stemming-chart"></div>
+          <p class="panel-note" id="stemming-explanation"></p>
+          <div class="comparison-table-wrap" id="stemming-table"></div>
+          <p class="panel-note">İki koşul aynı eğitim/test bölmesini, sözlükten türetilen etiketleri ve stop-word
+            temizliğini kullanır; tek fark kelime köklerinin stemming ile normalleştirilmesidir.</p>
+        </article>
+        <article class="panel analysis-panel" id="smote-panel" role="tabpanel">
+          <div class="panel-heading">
+            <div>
+              <h2>SMOTE (Sentetik Azınlık Aşırı Örnekleme) çalışması</h2>
+              <p class="panel-note" id="smote-note">SMOTE sınıf dengeleme karşılaştırması bekleniyor.</p>
+            </div>
+          </div>
+          <div class="bow-summary-grid" id="smote-summary"></div>
+          <div class="bow-section-title">
+            <span>1. Eğitim Kümesi Sınıf Dengelenmesi: SMOTE Öncesi (Orijinal) vs SMOTE Sonrası (Sentetik Örneklemeli)</span>
+          </div>
+          <div class="chart" id="smote-distribution-chart"></div>
+          <div class="bow-section-title">
+            <span>2. Sınıflandırma Modellerinde SMOTE Etkisi: SMOTE Yok (Dengesiz Eğitim) vs SMOTE Var (Dengelenmiş Eğitim)</span>
+          </div>
+          <div class="chart" id="smote-chart"></div>
+          <p class="panel-note" id="smote-explanation"></p>
+          <div class="comparison-table-wrap" id="smote-table"></div>
+          <div class="model-notes" id="smote-notes">
+            <div class="model-notes-section">
+              <h3>SMOTE (Synthetic Minority Over-sampling Technique) Nedir ve Nasıl Çalışır?</h3>
+              <ul class="model-notes-list">
+                <li><strong>Sınıf Dengesizliği (Class Imbalance) Problemi:</strong> Mevcut 100 yorumluk veri kümesinde
+                  75 olumlu (%75), 18 nötr (%18) ve yalnızca 7 olumsuz (%7) yorum yer alır (%80 eğitim kümesinde:
+                  <code>60 olumlu</code>, <code>14 nötr</code>, <code>6 olumsuz</code> — 10:1 çoğunluk/azınlık oranı).
+                  Dengesiz eğitim kümesiyle eğitilen standart sınıflandırıcılar (Naive Bayes, Lojistik Regresyon, SVM),
+                  toplam hata oranını düşürmek için tüm test yorumlarını baskın sınıf olan “olumlu” olarak tahmin etme
+                  eğilimine girer (%75 doğruluk elde edilse de nötr ve olumsuz sınıflar hiç yakalanamadığından macro F1
+                  %28,6 seviyesinde kalır).</li>
+                <li><strong>SMOTE Algoritmasının Matematiksel Prensibi (Chawla vd., 2002):</strong> Azınlık sınıflarındaki
+                  örnekleri birebir kopyalamak (random oversampling) ezberlemeye yol açtığından, SMOTE TF-IDF özellik
+                  uzayında her azınlık örneği (<code>x_i</code>) için aynı sınıftan en yakın <code>k = 5</code> komşuyu
+                  (Öklid mesafesiyle) bulur. Rastgele seçilen bir komşu (<code>x_zi</code>) ile örnek arasındaki doğru
+                  parçası üzerinde <code>x_yeni = x_i + λ · (x_zi − x_i)</code> (<code>0 ≤ λ ≤ 1</code>) formülüyle
+                  doğrusal interpolasyon yaparak <strong>yeni sentetik TF-IDF özellik vektörleri</strong> üretir.</li>
+                <li><strong>Veri Sızıntısını (Data Leakage) Önleme Kuralı:</strong> SMOTE işlemi <strong>yalnızca eğitim
+                  kümesine</strong> uygulanmıştır: eğitim kümesindeki 14 nötr yoruma <code>+46 sentetik nötr</code>, 6
+                  olumsuz yoruma <code>+54 sentetik olumsuz</code> vektör eklenerek eğitim kümesi 80 örneğin üzerine
+                  <code>+100 sentetik örnek</code> ile <strong>180 örneğe (60 olumlu · 60 nötr · 60 olumsuz)</strong>
+                  tam dengelenmiştir. Bağımsız %20 test kümesine (15 olumlu, 4 nötr, 1 olumsuz) kesinlikle dokunulmamıştır.</li>
+              </ul>
+            </div>
+            <div class="model-notes-section">
+              <h3>SMOTE Sonuçlarının Model Bazında Yorumu</h3>
+              <ul class="model-notes-list">
+                <li><strong>Naive Bayes (En Yüksek Kazanım · Macro F1: %28,6 → %67,8):</strong> SMOTE öncesinde sınıf
+                  önsel olasılıkları (class prior) %75 olumlu sınıfa baskın olduğu için 20 test yorumunun tamamını olumlu
+                  tahmin eden Naive Bayes, SMOTE ile sınıf olasılıkları eşitlenince azınlık sınıflarındaki kelime
+                  dağılımlarını başarıyla öğrenmiştir. Test doğruluğu <strong>%75,0'dan %80,0'a (+5,0 puan)</strong>,
+                  macro kesinlik <strong>%25,0'dan %73,3'e (+48,3 puan)</strong>, macro duyarlılık
+                  <strong>%33,3'ten %78,9'a (+45,6 puan)</strong>, macro F1 <strong>%28,6'dan %67,8'e (+39,2 puan)</strong>
+                  ve ROC-AUC <strong>%77,7'den %92,2'ye (+14,5 puan)</strong> yükselmiştir.</li>
+                <li><strong>Support Vector Machine - LinearSVC (Test Doğruluğu: %75,0 → %85,0 · Macro F1: %28,6 → %52,5):</strong>
+                  Sentetik azınlık vektörleri, doğrusal karar hiper-düzlemini çoğunluk sınıfından uzaklaştırarak marjı
+                  dengeli biçimde yeniden konumlandırmıştır. Böylece SVM test doğruluğunu <strong>+10,0 puan</strong>,
+                  macro kesinliği <strong>+36,1 puan</strong> ve macro F1 skorunu <strong>+24,0 puan</strong> artırmıştır.</li>
+                <li><strong>Random Forest (ROC-AUC: %76,6 → %87,4):</strong> Model halihazırda
+                  <code>class_weight="balanced_subsample"</code> kullandığı için %85,0 test doğruluğunu ve %52,5 macro F1
+                  skorunu korumuş; ancak SMOTE ile karar ağaçlarının azınlık sınıfı yapraklarındaki olasılık tahminleri
+                  zenginleşerek macro ROC-AUC sıralama başarısı <strong>+10,7 puan</strong> artışla %87,4'e ulaşmıştır.</li>
+                <li><strong>Lojistik Regresyon (Eğitim Doğruluğu: %75,0 → %96,7 · ROC-AUC: %92,7 → %93,2):</strong>
+                  L2 regülarizasyonlu Lojistik Regresyon, 3.257 boyutlu seyrek TF-IDF uzayında eğitim kümesini %96,7
+                  doğrulukla öğrenmiş ve test ROC-AUC sıralama gücünü %93,2'ye çıkarmıştır; ancak test kümesindeki
+                  azınlık örneklerinin kelime örtüşmesi düşük olduğundan olasılık eşiği (argmax) çoğunluk sınıfında kalmıştır.</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+        <article class="panel analysis-panel" id="bow-tfidf-panel" role="tabpanel">
+          <div class="panel-heading">
+            <div>
+              <h2>Bag of Words (BoW) ve TF-IDF çalışması</h2>
+              <p class="panel-note" id="bow-tfidf-note">BoW ve TF-IDF vektörleştirme karşılaştırması bekleniyor.</p>
+            </div>
+          </div>
+          <div class="bow-summary-grid" id="bow-tfidf-summary"></div>
+          <div class="bow-section-title">
+            <span>1. Terim Ağırlıklandırma Karşılaştırması: Ham Kelime Sıklığı (BoW) vs TF-IDF Ağırlığı</span>
+            <div class="model-toolbar-pills" id="bow-ngram-pills"></div>
+          </div>
+          <div class="chart" id="bow-tfidf-terms-chart"></div>
+          <div class="comparison-table-wrap" id="bow-tfidf-terms-table"></div>
+          <div class="bow-section-title">
+            <span>2. Sınıflandırma Modellerinde Vektörleştirme Etkisi: Bag of Words (CountVectorizer) vs TF-IDF (TfidfVectorizer)</span>
+          </div>
+          <div class="chart" id="bow-tfidf-chart"></div>
+          <p class="panel-note" id="bow-tfidf-explanation"></p>
+          <div class="comparison-table-wrap" id="bow-tfidf-table"></div>
+          <div class="model-notes" id="bow-tfidf-notes">
+            <div class="model-notes-section">
+              <h3>Bag of Words (BoW) ve TF-IDF Yöntemlerinin Çalışma Prensibi</h3>
+              <ul class="model-notes-list">
+                <li><strong>Bag of Words (BoW / Kelime Çantası · CountVectorizer):</strong> Yorum metinlerindeki kelime
+                  sırasını göz ardı ederek her terimin (tekil kelime <em>unigram</em> ve ikili kelime öbeği <em>bigram</em>)
+                  belge içinde kaç kez geçtiğini tam sayı olarak sayar. <code>amazon</code>, <code>iphone</code>,
+                  <code>telefon</code> gibi ürün/platform adları çok sık geçtiği için en yüksek ham frekansa ulaşır.</li>
+                <li><strong>TF-IDF (Term Frequency – Inverse Document Frequency · TfidfVectorizer):</strong> Terim
+                  sıklığını (<code>sublinear_tf=True</code> ile logaritmik ölçeklenen TF), terimin kaç farklı yorumda
+                  geçtiğine göre nadirliğini ölçen ters belge sıklığı (<code>IDF = log((1 + N) / (1 + df)) + 1</code>) ile
+                  çarpar ve L2 normuyla birim uzunluğa normalize eder. Böylece her yorumda tekrarlanan genel kelimeler
+                  baskılanırken, <code>teşekkürler</code>, <code>iyi</code>, <code>hızlı</code>, <code>kalitesi</code> gibi
+                  duygu ve yargı taşıyan terimler ön plana çıkar.</li>
+                <li><strong>N-gram (1, 2) ve Seyrek Matris (Sparsity):</strong> Hem tekil kelimeler (ör. <code>güzel</code>)
+                  hem de ardışık ikili ifadeler (ör. <code>elime ulaştı</code>, <code>teslim edildi</code>,
+                  <code>gerek yok</code>) sözlüğe dahil edilir. Her yorum toplam sözlüğün yalnızca küçük bir alt kümesini
+                  içerdiğinden oluşan özellik matrisi %98'in üzerinde seyrek (sparse) yapıdadır.</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+        <article class="panel analysis-panel" id="aspect-panel" role="tabpanel">
+          <div class="panel-heading">
+            <div>
+              <h2>Hedef tabanlı sıfır-atış duygu analizi</h2>
+              <p class="panel-note" id="aspect-note">Model sonuçları bekleniyor.</p>
+            </div>
+          </div>
+          <div class="chart" id="aspect-chart"></div>
+          <p class="panel-note">Her hedefin olumlu ve olumsuz NLI puanı bağımsızdır. İkisi de eşiği aşarsa “karma”; ikisi
+            de aşmazsa “hedef belirtilmedi” gösterilir. NLI puanları kalibre edilmiş olasılık veya doğruluk ölçüsü
+            değildir.</p>
+        </article>
+        <article class="panel analysis-panel" id="models-panel" role="tabpanel">
+          <div class="panel-heading">
+            <div>
+              <h2>Sınıflandırma modelleri</h2>
+              <p class="panel-note">Eğitim/test doğruluğu ve test F1 · CSV değerleri yüzde ölçeğinde</p>
+            </div>
+          </div>
+          <div class="model-toolbar" id="model-metric-toolbar">
+            <div class="model-toolbar-left">
+              <span class="toolbar-label">Metrikler</span>
+            </div>
+            <div class="model-toolbar-pills" id="model-metric-pills"></div>
+          </div>
+          <div class="chart" id="model-chart"></div>
+          <div class="comparison-table-wrap" id="model-table"></div>
+          <div class="model-notes" id="model-explanation">
+            <div class="model-notes-section">
+              <h3>Sınıflandırma Modellerinin Tanımları</h3>
+              <ul class="model-notes-list">
+                <li><strong>Naive Bayes:</strong> Bayes olasılık teoremine dayanan ve kelimelerin sınıflardan bağımsız
+                  olduğunu varsayan olasılıksal bir metin sınıflandırıcıdır. Az veriyle çok hızlı eğitilir; doğal dil
+                  işlemede güçlü ve güvenilir bir başlangıç/kıyaslama (baseline) modelidir.</li>
+                <li><strong>Lojistik Regresyon (Logistic Regression):</strong> TF-IDF ile ağırlıklandırılmış kelime
+                  frekanslarının doğrusal kombinasyonunu sigmoid/softmax fonksiyonu üzerinden sınıf olasılıklarına
+                  dönüştüren doğrusal modeldir; dengeli, kararlı ve yorumlanabilir sonuçlar sunar.</li>
+                <li><strong>Destek Vektör Makineleri (Support Vector Machine - SVM / LinearSVC):</strong> Farklı duygu
+                  sınıflarını (olumlu, nötr, olumsuz) birbirinden ayıran en geniş marjlı (en yüksek aralıklı) karar
+                  sınırını (hiper-düzlem) belirler. Yüksek boyutlu seyrek metin uzayında aşırı öğrenmeye karşı
+                  dirençlidir.</li>
+                <li><strong>Rastgele Orman (Random Forest):</strong> Verinin ve kelime özelliklerinin farklı alt
+                  kümeleriyle eğitilmiş çok sayıda bağımsız karar ağacının çoğunluk oylamasıyla (ensemble / topluluk)
+                  karar veren algoritmadır; karmaşık kelime ilişkilerini yakalar ve tekil karar ağaçlarına göre varyansı
+                  düşürür.</li>
+                <li><strong>Türkçe BERT (dbmdz/bert-base-turkish-cased):</strong> Transformatör (Transformer) mimarisini
+                  kullanan ve geniş Türkçe metin derlemleri üzerinde önceden eğitilmiş derin öğrenme dil modelidir.
+                  Kelimeleri tekil frekanslar yerine cümlenin bütünü içindeki iki yönlü bağlamı (context) ile anlayarak
+                  duygu çıkarımı yapar.</li>
+              </ul>
+            </div>
+            <div class="model-notes-section">
+              <h3>Metriklerin ve Yüzdelerin (% Değerlerinin) Anlamları</h3>
+              <ul class="model-notes-list">
+                <li><strong>Eğitim Doğruluğu (% / Train Accuracy):</strong> Modelin öğrenme aşamasında gördüğü eğitim
+                  kümesindeki yorumları doğru sınıflandırma oranıdır. Modelin eğitim verisini ne kadar kavradığını
+                  gösterir; %100 olması modelin veriyi tam öğrendiğini ancak ezberleme (aşırı öğrenme / overfitting) riski
+                  de taşıyabileceğini işaret eder.</li>
+                <li><strong>Test Doğruluğu (% / Test Accuracy):</strong> Modelin eğitim aşamasında hiç görmediği bağımsız
+                  test kümesindeki (%20) yorumları doğru tahmin etme oranıdır (Doğru Tahmin Sayısı / Toplam Test Yorumu).
+                  Modelin yeni yorumlara genelleme kabiliyetini ölçen temel metriktir.</li>
+                <li><strong>Test F1 Skoru (% / Macro F1):</strong> Kesinlik (Precision) ve Duyarlılık (Recall)
+                  metriklerinin harmonik ortalamasıdır. Yorum verilerinde olumlu yorumların nötr ve olumsuzlara göre çok
+                  baskın olduğu dengesiz sınıflarda test doğruluğu tek başına yanıltıcı olabilir. Macro F1, her duygu
+                  sınıfına eşit ağırlık vererek modelin dengeli ve tarafsız başarısını ölçer.</li>
+                <li><strong>Kesinlik (% / Macro Precision) ve Duyarlılık (% / Macro Recall):</strong> Kesinlik, modelin
+                  bir sınıf için (ör. "olumlu") yaptığı tahminlerin gerçekte ne kadarının doğru olduğunu; Duyarlılık ise
+                  gerçekte var olan sınıf örneklerinin model tarafından ne kadarının yakalandığını (kaçırılmadığını) ifade
+                  eder.</li>
+                <li><strong>ROC-AUC (% / Macro ROC-AUC):</strong> Modelin sınıfları birbirinden ayırt etme ve doğru
+                  olasılık sıralaması yapma gücüdür. %50 rastgele tahmini, %100 ise sınıfların kusursuz ayrıştırıldığını
+                  ifade eder.</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+        <article class="panel analysis-panel" id="training-size-panel" role="tabpanel">
+          <div class="panel-heading">
+            <div>
+              <h2>Eğitim oranının model başarısına etkisi</h2>
+              <p class="panel-note" id="training-size-note">Eğitim oranı karşılaştırması bekleniyor.</p>
+            </div>
+          </div>
+          <div class="chart" id="training-size-chart"></div>
+          <p class="panel-note" id="training-size-explanation"></p>
+          <div class="comparison-table-wrap" id="training-size-table"></div>
+        </article>
+      </div>
+    </section>
     <section class="layout">
-      <article class="panel wide" id="smote-panel">
-        <div class="panel-heading">
-          <div>
-            <h2>SMOTE (Sentetik Azınlık Aşırı Örnekleme) çalışması</h2>
-            <p class="panel-note" id="smote-note">SMOTE sınıf dengeleme karşılaştırması bekleniyor.</p>
-          </div>
-        </div>
-        <div class="bow-summary-grid" id="smote-summary"></div>
-        <div class="bow-section-title">
-          <span>1. Eğitim Kümesi Sınıf Dengelenmesi: SMOTE Öncesi (Orijinal) vs SMOTE Sonrası (Sentetik Örneklemeli)</span>
-        </div>
-        <div class="chart" id="smote-distribution-chart"></div>
-        <div class="bow-section-title">
-          <span>2. Sınıflandırma Modellerinde SMOTE Etkisi: SMOTE Yok (Dengesiz Eğitim) vs SMOTE Var (Dengelenmiş Eğitim)</span>
-        </div>
-        <div class="chart" id="smote-chart"></div>
-        <p class="panel-note" id="smote-explanation"></p>
-        <div class="comparison-table-wrap" id="smote-table"></div>
-        <div class="model-notes" id="smote-notes">
-          <div class="model-notes-section">
-            <h3>SMOTE (Synthetic Minority Over-sampling Technique) Nedir ve Nasıl Çalışır?</h3>
-            <ul class="model-notes-list">
-              <li><strong>Sınıf Dengesizliği (Class Imbalance) Problemi:</strong> Mevcut 100 yorumluk veri kümesinde
-                75 olumlu (%75), 18 nötr (%18) ve yalnızca 7 olumsuz (%7) yorum yer alır (%80 eğitim kümesinde:
-                <code>60 olumlu</code>, <code>14 nötr</code>, <code>6 olumsuz</code> — 10:1 çoğunluk/azınlık oranı).
-                Dengesiz eğitim kümesiyle eğitilen standart sınıflandırıcılar (Naive Bayes, Lojistik Regresyon, SVM),
-                toplam hata oranını düşürmek için tüm test yorumlarını baskın sınıf olan “olumlu” olarak tahmin etme
-                eğilimine girer (%75 doğruluk elde edilse de nötr ve olumsuz sınıflar hiç yakalanamadığından macro F1
-                %28,6 seviyesinde kalır).</li>
-              <li><strong>SMOTE Algoritmasının Matematiksel Prensibi (Chawla vd., 2002):</strong> Azınlık sınıflarındaki
-                örnekleri birebir kopyalamak (random oversampling) ezberlemeye yol açtığından, SMOTE TF-IDF özellik
-                uzayında her azınlık örneği (<code>x_i</code>) için aynı sınıftan en yakın <code>k = 5</code> komşuyu
-                (Öklid mesafesiyle) bulur. Rastgele seçilen bir komşu (<code>x_zi</code>) ile örnek arasındaki doğru
-                parçası üzerinde <code>x_yeni = x_i + λ · (x_zi − x_i)</code> (<code>0 ≤ λ ≤ 1</code>) formülüyle
-                doğrusal interpolasyon yaparak <strong>yeni sentetik TF-IDF özellik vektörleri</strong> üretir.</li>
-              <li><strong>Veri Sızıntısını (Data Leakage) Önleme Kuralı:</strong> SMOTE işlemi <strong>yalnızca eğitim
-                kümesine</strong> uygulanmıştır: eğitim kümesindeki 14 nötr yoruma <code>+46 sentetik nötr</code>, 6
-                olumsuz yoruma <code>+54 sentetik olumsuz</code> vektör eklenerek eğitim kümesi 80 örneğin üzerine
-                <code>+100 sentetik örnek</code> ile <strong>180 örneğe (60 olumlu · 60 nötr · 60 olumsuz)</strong>
-                tam dengelenmiştir. Bağımsız %20 test kümesine (15 olumlu, 4 nötr, 1 olumsuz) kesinlikle dokunulmamıştır.</li>
-            </ul>
-          </div>
-          <div class="model-notes-section">
-            <h3>SMOTE Sonuçlarının Model Bazında Yorumu</h3>
-            <ul class="model-notes-list">
-              <li><strong>Naive Bayes (En Yüksek Kazanım · Macro F1: %28,6 → %67,8):</strong> SMOTE öncesinde sınıf
-                önsel olasılıkları (class prior) %75 olumlu sınıfa baskın olduğu için 20 test yorumunun tamamını olumlu
-                tahmin eden Naive Bayes, SMOTE ile sınıf olasılıkları eşitlenince azınlık sınıflarındaki kelime
-                dağılımlarını başarıyla öğrenmiştir. Test doğruluğu <strong>%75,0'dan %80,0'a (+5,0 puan)</strong>,
-                macro kesinlik <strong>%25,0'dan %73,3'e (+48,3 puan)</strong>, macro duyarlılık
-                <strong>%33,3'ten %78,9'a (+45,6 puan)</strong>, macro F1 <strong>%28,6'dan %67,8'e (+39,2 puan)</strong>
-                ve ROC-AUC <strong>%77,7'den %92,2'ye (+14,5 puan)</strong> yükselmiştir.</li>
-              <li><strong>Support Vector Machine - LinearSVC (Test Doğruluğu: %75,0 → %85,0 · Macro F1: %28,6 → %52,5):</strong>
-                Sentetik azınlık vektörleri, doğrusal karar hiper-düzlemini çoğunluk sınıfından uzaklaştırarak marjı
-                dengeli biçimde yeniden konumlandırmıştır. Böylece SVM test doğruluğunu <strong>+10,0 puan</strong>,
-                macro kesinliği <strong>+36,1 puan</strong> ve macro F1 skorunu <strong>+24,0 puan</strong> artırmıştır.</li>
-              <li><strong>Random Forest (ROC-AUC: %76,6 → %87,4):</strong> Model halihazırda
-                <code>class_weight="balanced_subsample"</code> kullandığı için %85,0 test doğruluğunu ve %52,5 macro F1
-                skorunu korumuş; ancak SMOTE ile karar ağaçlarının azınlık sınıfı yapraklarındaki olasılık tahminleri
-                zenginleşerek macro ROC-AUC sıralama başarısı <strong>+10,7 puan</strong> artışla %87,4'e ulaşmıştır.</li>
-              <li><strong>Lojistik Regresyon (Eğitim Doğruluğu: %75,0 → %96,7 · ROC-AUC: %92,7 → %93,2):</strong>
-                L2 regülarizasyonlu Lojistik Regresyon, 3.257 boyutlu seyrek TF-IDF uzayında eğitim kümesini %96,7
-                doğrulukla öğrenmiş ve test ROC-AUC sıralama gücünü %93,2'ye çıkarmıştır; ancak test kümesindeki
-                azınlık örneklerinin kelime örtüşmesi düşük olduğundan olasılık eşiği (argmax) çoğunluk sınıfında kalmıştır.</li>
-            </ul>
-          </div>
-        </div>
-      </article>
-      <article class="panel wide" id="bow-tfidf-panel">
-        <div class="panel-heading">
-          <div>
-            <h2>Bag of Words (BoW) ve TF-IDF çalışması</h2>
-            <p class="panel-note" id="bow-tfidf-note">BoW ve TF-IDF vektörleştirme karşılaştırması bekleniyor.</p>
-          </div>
-        </div>
-        <div class="bow-summary-grid" id="bow-tfidf-summary"></div>
-        <div class="bow-section-title">
-          <span>1. Terim Ağırlıklandırma Karşılaştırması: Ham Kelime Sıklığı (BoW) vs TF-IDF Ağırlığı</span>
-          <div class="model-toolbar-pills" id="bow-ngram-pills"></div>
-        </div>
-        <div class="chart" id="bow-tfidf-terms-chart"></div>
-        <div class="comparison-table-wrap" id="bow-tfidf-terms-table"></div>
-        <div class="bow-section-title">
-          <span>2. Sınıflandırma Modellerinde Vektörleştirme Etkisi: Bag of Words (CountVectorizer) vs TF-IDF (TfidfVectorizer)</span>
-        </div>
-        <div class="chart" id="bow-tfidf-chart"></div>
-        <p class="panel-note" id="bow-tfidf-explanation"></p>
-        <div class="comparison-table-wrap" id="bow-tfidf-table"></div>
-        <div class="model-notes" id="bow-tfidf-notes">
-          <div class="model-notes-section">
-            <h3>Bag of Words (BoW) ve TF-IDF Yöntemlerinin Çalışma Prensibi</h3>
-            <ul class="model-notes-list">
-              <li><strong>Bag of Words (BoW / Kelime Çantası · CountVectorizer):</strong> Yorum metinlerindeki kelime
-                sırasını göz ardı ederek her terimin (tekil kelime <em>unigram</em> ve ikili kelime öbeği <em>bigram</em>)
-                belge içinde kaç kez geçtiğini tam sayı olarak sayar. <code>amazon</code>, <code>iphone</code>,
-                <code>telefon</code> gibi ürün/platform adları çok sık geçtiği için en yüksek ham frekansa ulaşır.</li>
-              <li><strong>TF-IDF (Term Frequency – Inverse Document Frequency · TfidfVectorizer):</strong> Terim
-                sıklığını (<code>sublinear_tf=True</code> ile logaritmik ölçeklenen TF), terimin kaç farklı yorumda
-                geçtiğine göre nadirliğini ölçen ters belge sıklığı (<code>IDF = log((1 + N) / (1 + df)) + 1</code>) ile
-                çarpar ve L2 normuyla birim uzunluğa normalize eder. Böylece her yorumda tekrarlanan genel kelimeler
-                baskılanırken, <code>teşekkürler</code>, <code>iyi</code>, <code>hızlı</code>, <code>kalitesi</code> gibi
-                duygu ve yargı taşıyan terimler ön plana çıkar.</li>
-              <li><strong>N-gram (1, 2) ve Seyrek Matris (Sparsity):</strong> Hem tekil kelimeler (ör. <code>güzel</code>)
-                hem de ardışık ikili ifadeler (ör. <code>elime ulaştı</code>, <code>teslim edildi</code>,
-                <code>gerek yok</code>) sözlüğe dahil edilir. Her yorum toplam sözlüğün yalnızca küçük bir alt kümesini
-                içerdiğinden oluşan özellik matrisi %98'in üzerinde seyrek (sparse) yapıdadır.</li>
-            </ul>
-          </div>
-        </div>
-      </article>
-      <article class="panel wide">
-        <div class="panel-heading">
-          <div>
-            <h2>Hedef tabanlı sıfır-atış duygu analizi</h2>
-            <p class="panel-note" id="aspect-note">Model sonuçları bekleniyor.</p>
-          </div>
-        </div>
-        <div class="chart" id="aspect-chart"></div>
-        <p class="panel-note">Her hedefin olumlu ve olumsuz NLI puanı bağımsızdır. İkisi de eşiği aşarsa “karma”; ikisi
-          de aşmazsa “hedef belirtilmedi” gösterilir. NLI puanları kalibre edilmiş olasılık veya doğruluk ölçüsü
-          değildir.</p>
-      </article>
       <article class="panel">
         <div class="panel-heading">
           <div>
@@ -903,94 +1251,6 @@
           </div>
         </div>
         <div class="chart" id="timeline-chart"></div>
-      </article>
-      <article class="panel wide">
-        <div class="panel-heading">
-          <div>
-            <h2>Sınıflandırma modelleri</h2>
-            <p class="panel-note">Eğitim/test doğruluğu ve test F1 · CSV değerleri yüzde ölçeğinde</p>
-          </div>
-        </div>
-        <div class="model-toolbar" id="model-metric-toolbar">
-          <div class="model-toolbar-left">
-            <span class="toolbar-label">Metrikler</span>
-          </div>
-          <div class="model-toolbar-pills" id="model-metric-pills"></div>
-        </div>
-        <div class="chart" id="model-chart"></div>
-        <div class="comparison-table-wrap" id="model-table"></div>
-        <div class="model-notes" id="model-explanation">
-          <div class="model-notes-section">
-            <h3>Sınıflandırma Modellerinin Tanımları</h3>
-            <ul class="model-notes-list">
-              <li><strong>Naive Bayes:</strong> Bayes olasılık teoremine dayanan ve kelimelerin sınıflardan bağımsız
-                olduğunu varsayan olasılıksal bir metin sınıflandırıcıdır. Az veriyle çok hızlı eğitilir; doğal dil
-                işlemede güçlü ve güvenilir bir başlangıç/kıyaslama (baseline) modelidir.</li>
-              <li><strong>Lojistik Regresyon (Logistic Regression):</strong> TF-IDF ile ağırlıklandırılmış kelime
-                frekanslarının doğrusal kombinasyonunu sigmoid/softmax fonksiyonu üzerinden sınıf olasılıklarına
-                dönüştüren doğrusal modeldir; dengeli, kararlı ve yorumlanabilir sonuçlar sunar.</li>
-              <li><strong>Destek Vektör Makineleri (Support Vector Machine - SVM / LinearSVC):</strong> Farklı duygu
-                sınıflarını (olumlu, nötr, olumsuz) birbirinden ayıran en geniş marjlı (en yüksek aralıklı) karar
-                sınırını (hiper-düzlem) belirler. Yüksek boyutlu seyrek metin uzayında aşırı öğrenmeye karşı
-                dirençlidir.</li>
-              <li><strong>Rastgele Orman (Random Forest):</strong> Verinin ve kelime özelliklerinin farklı alt
-                kümeleriyle eğitilmiş çok sayıda bağımsız karar ağacının çoğunluk oylamasıyla (ensemble / topluluk)
-                karar veren algoritmadır; karmaşık kelime ilişkilerini yakalar ve tekil karar ağaçlarına göre varyansı
-                düşürür.</li>
-              <li><strong>Türkçe BERT (dbmdz/bert-base-turkish-cased):</strong> Transformatör (Transformer) mimarisini
-                kullanan ve geniş Türkçe metin derlemleri üzerinde önceden eğitilmiş derin öğrenme dil modelidir.
-                Kelimeleri tekil frekanslar yerine cümlenin bütünü içindeki iki yönlü bağlamı (context) ile anlayarak
-                duygu çıkarımı yapar.</li>
-            </ul>
-          </div>
-          <div class="model-notes-section">
-            <h3>Metriklerin ve Yüzdelerin (% Değerlerinin) Anlamları</h3>
-            <ul class="model-notes-list">
-              <li><strong>Eğitim Doğruluğu (% / Train Accuracy):</strong> Modelin öğrenme aşamasında gördüğü eğitim
-                kümesindeki yorumları doğru sınıflandırma oranıdır. Modelin eğitim verisini ne kadar kavradığını
-                gösterir; %100 olması modelin veriyi tam öğrendiğini ancak ezberleme (aşırı öğrenme / overfitting) riski
-                de taşıyabileceğini işaret eder.</li>
-              <li><strong>Test Doğruluğu (% / Test Accuracy):</strong> Modelin eğitim aşamasında hiç görmediği bağımsız
-                test kümesindeki (%20) yorumları doğru tahmin etme oranıdır (Doğru Tahmin Sayısı / Toplam Test Yorumu).
-                Modelin yeni yorumlara genelleme kabiliyetini ölçen temel metriktir.</li>
-              <li><strong>Test F1 Skoru (% / Macro F1):</strong> Kesinlik (Precision) ve Duyarlılık (Recall)
-                metriklerinin harmonik ortalamasıdır. Yorum verilerinde olumlu yorumların nötr ve olumsuzlara göre çok
-                baskın olduğu dengesiz sınıflarda test doğruluğu tek başına yanıltıcı olabilir. Macro F1, her duygu
-                sınıfına eşit ağırlık vererek modelin dengeli ve tarafsız başarısını ölçer.</li>
-              <li><strong>Kesinlik (% / Macro Precision) ve Duyarlılık (% / Macro Recall):</strong> Kesinlik, modelin
-                bir sınıf için (ör. "olumlu") yaptığı tahminlerin gerçekte ne kadarının doğru olduğunu; Duyarlılık ise
-                gerçekte var olan sınıf örneklerinin model tarafından ne kadarının yakalandığını (kaçırılmadığını) ifade
-                eder.</li>
-              <li><strong>ROC-AUC (% / Macro ROC-AUC):</strong> Modelin sınıfları birbirinden ayırt etme ve doğru
-                olasılık sıralaması yapma gücüdür. %50 rastgele tahmini, %100 ise sınıfların kusursuz ayrıştırıldığını
-                ifade eder.</li>
-            </ul>
-          </div>
-        </div>
-      </article>
-      <article class="panel wide">
-        <div class="panel-heading">
-          <div>
-            <h2>Eğitim oranının model başarısına etkisi</h2>
-            <p class="panel-note" id="training-size-note">Eğitim oranı karşılaştırması bekleniyor.</p>
-          </div>
-        </div>
-        <div class="chart" id="training-size-chart"></div>
-        <p class="panel-note" id="training-size-explanation"></p>
-        <div class="comparison-table-wrap" id="training-size-table"></div>
-      </article>
-      <article class="panel wide">
-        <div class="panel-heading">
-          <div>
-            <h2>Stemming etkisi: var / yok</h2>
-            <p class="panel-note" id="stemming-note">Karşılaştırma sonuçları bekleniyor.</p>
-          </div>
-        </div>
-        <div class="chart" id="stemming-chart"></div>
-        <p class="panel-note" id="stemming-explanation"></p>
-        <div class="comparison-table-wrap" id="stemming-table"></div>
-        <p class="panel-note">İki koşul aynı eğitim/test bölmesini, sözlükten türetilen etiketleri ve stop-word
-          temizliğini kullanır; tek fark kelime köklerinin stemming ile normalleştirilmesidir.</p>
       </article>
       <article class="panel wide">
         <div class="panel-heading">
@@ -2274,7 +2534,39 @@
       if (!fallbackResponse.ok) throw new Error(fallbackData.error || "Dashboard verileri yüklenemedi.");
       return fallbackData;
     }
+    function setupAnalysisSidebar() {
+      const nav = document.querySelector("#analysis-sidebar-nav");
+      if (!nav) return;
+      const buttons = Array.from(nav.querySelectorAll(".sidebar-btn[data-panel]"));
+      const panels = Array.from(document.querySelectorAll("#analysis-panels .analysis-panel"));
+
+      function activatePanel(panelId) {
+        buttons.forEach(btn => {
+          const isMatch = btn.dataset.panel === panelId;
+          btn.classList.toggle("active", isMatch);
+          btn.setAttribute("aria-selected", isMatch ? "true" : "false");
+        });
+        panels.forEach(panel => {
+          const isMatch = panel.id === panelId;
+          panel.classList.toggle("active", isMatch);
+          panel.hidden = !isMatch;
+        });
+      }
+
+      buttons.forEach(btn => {
+        btn.addEventListener("click", () => {
+          activatePanel(btn.dataset.panel);
+        });
+      });
+
+      const initialBtn = buttons.find(btn => btn.classList.contains("active")) || buttons[0];
+      if (initialBtn) {
+        activatePanel(initialBtn.dataset.panel);
+      }
+    }
+
     async function init() {
+      setupAnalysisSidebar();
       renderSmoteComparison(FALLBACK_SMOTE_COMPARISON);
       renderBowTfidfComparison(FALLBACK_BOW_TFIDF_COMPARISON);
       try {
