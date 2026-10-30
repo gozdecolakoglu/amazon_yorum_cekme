@@ -48,7 +48,7 @@
     .panel-note { margin: 5px 0 0; color: var(--muted); font-size: 11px; }
     .chart { width: 100%; min-height: 210px; }
     .chart svg { display: block; width: 100%; height: 220px; overflow: visible; }
-    #aspect-chart svg { height: 310px; }
+    #aspect-chart svg { height: 360px; }
     #model-chart svg { height: 270px; }
     #training-size-chart svg { height: 340px; }
     .donut-layout { display: flex; min-height: 220px; align-items: center; justify-content: center; gap: clamp(22px, 7vw, 70px); }
@@ -296,9 +296,9 @@
         target.innerHTML = '<div class="empty">Analiz edilebilecek yorum bulunamadı.</div>';
         return;
       }
-      const width = 900, rowHeight = 55, left = 205, plotWidth = 535;
+      const width = 900, rowHeight = 65, left = 205, plotWidth = 535;
       const height = Math.max(170, analysis.aspects.length * rowHeight + 36);
-      const svg = svgElement("svg", { viewBox: `0 0 ${width} ${height}`, role: "img", "aria-label": "Telefon özellikleri için olumlu ve olumsuz hedef tabanlı duygu etiketleri" });
+      const svg = svgElement("svg", { viewBox: `0 0 ${width} ${height}`, role: "img", "aria-label": "Telefon özellikleri için olumlu, olumsuz ve karma hedef tabanlı duygu etiketleri" });
       for (let tick = 0; tick <= 4; tick++) {
         const x = left + plotWidth * tick / 4;
         svg.append(svgElement("line", { x1: x, y1: 10, x2: x, y2: height - 22, stroke: "#edf0f5" }));
@@ -306,10 +306,11 @@
       }
       analysis.aspects.forEach((aspect, index) => {
         const y = 15 + index * rowHeight;
-        textNode(svg, left - 12, y + 17, aspect.label, { anchor: "end", fill: "#4d586c", size: 11 });
+        textNode(svg, left - 12, y + 23, aspect.label, { anchor: "end", fill: "#4d586c", size: 11 });
         const rows = [
           { key: "positive_count", color: "#15a88a", label: "Olumlu" },
-          { key: "negative_count", color: "#e46c76", label: "Olumsuz" }
+          { key: "negative_count", color: "#e46c76", label: "Olumsuz" },
+          { key: "mixed_count", color: "#ed9c35", label: "Karma" }
         ];
         rows.forEach((item, rowIndex) => {
           const barY = y + rowIndex * 15;
@@ -318,7 +319,6 @@
           svg.append(svgElement("rect", { x: left, y: barY, width: plotWidth * value / analysis.eligible_count, height: 8, rx: 4, fill: item.color }));
           textNode(svg, left + plotWidth * value / analysis.eligible_count + 7, barY + 8, `${item.label}: ${formatNumber(value)}`, { fill: "#4d586c", size: 9 });
         });
-        textNode(svg, width - 14, y + 30, `Karma: ${formatNumber(aspect.mixed_count)}`, { anchor: "end", size: 9 });
       });
       target.replaceChildren(svg);
       const legend = document.createElement("div"); legend.className = "aspect-legend";

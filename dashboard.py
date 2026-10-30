@@ -472,7 +472,7 @@ def create_handler(reviews_path: Path, metrics_path: Path) -> type[BaseHTTPReque
             if request_path == "/":
                 page_path = PROJECT_DIR / "dashboard.html"
                 if not page_path.is_file():
-                    self.send_error(500, "dashboard.html bulunamadı.")
+                    self.send_error(500, "Internal Server Error", "dashboard.html bulunamadı.")
                     return
                 content = page_path.read_bytes()
                 self.send_response(200)
@@ -504,7 +504,7 @@ def create_handler(reviews_path: Path, metrics_path: Path) -> type[BaseHTTPReque
                 self.wfile.write(content)
                 return
 
-            self.send_error(404, "Sayfa bulunamadı.")
+            self.send_error(404, "Not Found", "Sayfa bulunamadı.")
 
         def log_message(self, format: str, *args: object) -> None:
             print(f"{self.address_string()} - {format % args}")
