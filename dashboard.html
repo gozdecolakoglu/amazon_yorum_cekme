@@ -51,6 +51,7 @@
     #aspect-chart svg { height: 360px; }
     #model-chart svg { height: auto; min-height: 180px; max-height: 480px; }
     #training-size-chart svg { height: 340px; }
+    #stemming-chart svg { height: auto; min-height: 220px; }
     .donut-layout { display: flex; min-height: 220px; align-items: center; justify-content: center; gap: clamp(22px, 7vw, 70px); }
     .donut { position: relative; display: grid; width: 158px; height: 158px; flex: 0 0 158px; place-items: center; border-radius: 50%; }
     .donut::after { position: absolute; width: 98px; height: 98px; border-radius: 50%; background: white; content: ""; }
@@ -650,35 +651,88 @@
       const unchangedF1 = comparison.models.filter(model => model.with_stemming.test_f1 === model.without_stemming.test_f1).length;
       const improvedRocAuc = comparison.models.filter(model => model.with_stemming.test_roc_auc > model.without_stemming.test_roc_auc).length;
       explanation.textContent = `Bu deney, stop-word temizliğinden sonra yalnızca kök bulma adımını değiştirerek aynı test kümesinde modellerin sözlük etiketlerini tahminini karşılaştırır. Bu sonuçlarda ${formatNumber(unchangedAccuracy)}/${formatNumber(comparison.models.length)} modelin test doğruluğu, ${formatNumber(unchangedF1)}/${formatNumber(comparison.models.length)} modelin macro F1 değeri değişmedi; ${formatNumber(improvedRocAuc)}/${formatNumber(comparison.models.length)} modelde macro ROC-AUC yükseldi. ROC-AUC sınıfları sıralama/ayırt etme puanını ölçer; yükselmesi tek başına doğru sınıf tahminlerinin arttığını göstermez. Küçük ve dengesiz veri ile otomatik sözlük etiketleri, genel bir üstünlüğü veya gerçek duygu başarımını kanıtlamaz.`;
-      const width = 900, rowHeight = 48, height = Math.max(185, comparison.models.length * rowHeight + 48);
-      const left = 190, plotWidth = 590;
-      const svg = svgElement("svg", { viewBox: `0 0 ${width} ${height}`, role: "img", "aria-label": "Stemming var ve yok koşullarında test doğruluğu ve macro F1 karşılaştırması" });
-      for (let tick = 0; tick <= 4; tick++) {
-        const x = left + plotWidth * tick / 4;
-        svg.append(svgElement("line", { x1: x, y1: 10, x2: x, y2: height - 24, stroke: "#edf0f5" }));
-        textNode(svg, x, height - 5, `${tick * 25}%`, { anchor: "middle", size: 10 });
+      // Grouped bar: her model için 5 metrik grubu, her grupta 2 çubuk (Stemming yok / var)
+      const COND = [
+        { key: "without_stemming", label: "Stemming yok", color: "#5865e8" },
+        { key: "with_stemming",    label: "Stemming var",  color: "#15a88a" }
+      ];
+      const METRICS = [
+        { key: "test_accuracy",  label: "Doğruluk"   },
+        { key: "test_precision", label: "Kesinlik"   },
+        { key: "test_recall",    label: "Duyarlılık" },
+        { key: "test_f1",        label: "F1"         },
+        { key: "test_roc_auc",   label: "ROC-AUC"   }
+      ];
+      const barH = 9, barInnerGap = 2, metricGap = 10, rowPad = 14;
+      const groupH = COND.length * barH + (COND.length - 1) * barInnerGap;
+      const rowH = METRICS.length * (groupH + metricGap) - metricGap + rowPad * 2;
+      const svgW = 900, left = 210, plotW = 530;
+      const height = Math.max(260, comparison.models.length * rowH + 36);
+      const svg = svgElement("svg", { viewBox: `0 0 ${svgW} ${height}`, role: "img", "aria-label": "Stemming var ve yok karşılaştırması" });
+
+      // Izgara çizgileri
+      for (let t = 0; t <= 4; t++) {
+        const x = left + plotW * t / 4;
+        svg.append(svgElement("line", { x1: x, y1: 6, x2: x, y2: height - 20, stroke: "#edf0f5", "stroke-width": 1 }));
+        textNode(svg, x, height - 5, `${t * 25}%`, { anchor: "middle", size: 9, fill: "#9aa3b2" });
       }
-      comparison.models.forEach((model, index) => {
-        const y = 14 + index * rowHeight;
-        textNode(svg, left - 12, y + 19, model.model, { anchor: "end", fill: "#4d586c", size: 11 });
-        [
-          { result: model.without_stemming, color: "#5865e8", offset: 0 },
-          { result: model.with_stemming, color: "#15a88a", offset: 1 }
-        ].forEach(({ result, color, offset }) => {
-          const barY = y + offset * 17;
-          svg.append(svgElement("rect", { x: left, y: barY, width: plotWidth * result.test_accuracy, height: 6, rx: 3, fill: color }));
-          svg.append(svgElement("rect", { x: left, y: barY + 7, width: plotWidth * result.test_f1, height: 6, rx: 3, fill: color, opacity: .48 }));
-          textNode(svg, left + plotWidth * Math.max(result.test_accuracy, result.test_f1) + 7, barY + 9, `${formatNumber(result.test_accuracy * 100, 1)}% / ${formatNumber(result.test_f1 * 100, 1)}%`, { fill: "#4d586c", size: 9, weight: 600 });
+
+      comparison.models.forEach((model, mi) => {
+        const baseY = 14 + mi * rowH;
+        // Model adı — satırın üst kısmında, sol tarafa
+        textNode(svg, left - 16, baseY + rowPad - 2, model.model, { anchor: "end", fill: "#2c3a52", size: 11, weight: 700 });
+
+        METRICS.forEach(({ key: mKey, label: mLabel }, mIdx) => {
+          const mBaseY = baseY + rowPad + mIdx * (groupH + metricGap);
+
+          // Metrik etiketi — solda, grubun ortasında
+          textNode(svg, left - 16, mBaseY + groupH / 2 + 3, mLabel, { anchor: "end", fill: "#7a8498", size: 9 });
+
+          COND.forEach(({ key: cKey, color }, ci) => {
+            const result = model[cKey];
+            const val = result[mKey] ?? 0;
+            const barY = mBaseY + ci * (barH + barInnerGap);
+
+            // Arka plan
+            svg.append(svgElement("rect", { x: left, y: barY, width: plotW, height: barH, rx: 4, fill: "#eef0f6" }));
+            // Değer çubuğu
+            const barW = Math.max(0, plotW * val);
+            svg.append(svgElement("rect", { x: left, y: barY, width: barW, height: barH, rx: 4, fill: color }));
+            // Değer etiketi — çubuğun sağına
+            textNode(svg, left + barW + 5, barY + barH - 1, `%${formatNumber(val * 100, 1)}`, { fill: "#3d4a5e", size: 9, weight: 700 });
+          });
+
+          // Metrik arası ince ayraç (son metrik hariç)
+          if (mIdx < METRICS.length - 1) {
+            const lineY = mBaseY + groupH + metricGap / 2;
+            svg.append(svgElement("line", { x1: left, y1: lineY, x2: left + plotW, y2: lineY, stroke: "#f0f2f8" }));
+          }
         });
+
+        // Model arası ayraç (son model hariç)
+        if (mi < comparison.models.length - 1) {
+          const sepY = baseY + rowH - 4;
+          svg.append(svgElement("line", { x1: left - 5, y1: sepY, x2: left + plotW, y2: sepY, stroke: "#dde2ed", "stroke-dasharray": "4 3" }));
+        }
       });
+
       target.replaceChildren(svg);
+
+      // Legend
       const legend = document.createElement("div"); legend.className = "aspect-legend";
-      [["Stemming yok", "#5865e8"], ["Stemming var", "#15a88a"], ["Test doğruluğu", "#758097"], ["Test macro F1", "#b8beca"]].forEach(([label, color], index) => {
+      legend.style.marginTop = "12px";
+      COND.forEach(({ label, color }) => {
         const item = document.createElement("span"); item.className = "aspect-legend-item";
         const dot = document.createElement("span"); dot.className = "aspect-legend-dot"; dot.style.background = color;
-        if (index === 3) dot.style.opacity = ".55";
         const caption = document.createElement("span"); caption.textContent = label;
         item.append(dot, caption); legend.append(item);
+      });
+      // Her metriki de göster
+      METRICS.forEach(({ label: mLabel }) => {
+        const item = document.createElement("span"); item.className = "aspect-legend-item";
+        item.style.color = "#9aa3b2"; item.style.fontSize = "10px";
+        const caption = document.createElement("span"); caption.textContent = mLabel;
+        item.append(caption); legend.append(item);
       });
       target.append(legend);
 
