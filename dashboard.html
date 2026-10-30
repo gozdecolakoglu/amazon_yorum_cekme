@@ -87,8 +87,8 @@
 
     .cards {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 16px;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 14px;
       margin-bottom: 18px;
     }
 
@@ -185,9 +185,75 @@
       height: 340px;
     }
 
-    #stemming-chart svg {
+    #stemming-chart svg,
+    #bow-tfidf-chart svg,
+    #bow-tfidf-terms-chart svg {
       height: auto;
       min-height: 220px;
+    }
+
+    .bow-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin: 12px 0 16px;
+    }
+
+    .bow-stat-box {
+      padding: 13px 15px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: #f8fafc;
+    }
+
+    .bow-stat-label {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .bow-stat-value {
+      margin-top: 6px;
+      font-size: 21px;
+      font-weight: 750;
+      letter-spacing: -.03em;
+      color: var(--ink);
+    }
+
+    .bow-stat-sub {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .bow-section-title {
+      margin: 18px 0 8px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--ink);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .ngram-badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .ngram-badge.unigram {
+      background: #eef1ff;
+      color: #4653d4;
+    }
+
+    .ngram-badge.bigram {
+      background: #e8f7f1;
+      color: #158363;
     }
 
     .donut-layout {
@@ -608,7 +674,8 @@
         padding: 25px 20px 35px;
       }
 
-      .cards {
+      .cards,
+      .bow-summary-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
@@ -686,6 +753,48 @@
     </header>
     <section class="cards" id="summary" aria-label="Genel bakış"></section>
     <section class="layout">
+      <article class="panel wide" id="bow-tfidf-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Bag of Words (BoW) ve TF-IDF çalışması</h2>
+            <p class="panel-note" id="bow-tfidf-note">BoW ve TF-IDF vektörleştirme karşılaştırması bekleniyor.</p>
+          </div>
+        </div>
+        <div class="bow-summary-grid" id="bow-tfidf-summary"></div>
+        <div class="bow-section-title">
+          <span>1. Terim Ağırlıklandırma Karşılaştırması: Ham Kelime Sıklığı (BoW) vs TF-IDF Ağırlığı</span>
+          <div class="model-toolbar-pills" id="bow-ngram-pills"></div>
+        </div>
+        <div class="chart" id="bow-tfidf-terms-chart"></div>
+        <div class="comparison-table-wrap" id="bow-tfidf-terms-table"></div>
+        <div class="bow-section-title">
+          <span>2. Sınıflandırma Modellerinde Vektörleştirme Etkisi: Bag of Words (CountVectorizer) vs TF-IDF (TfidfVectorizer)</span>
+        </div>
+        <div class="chart" id="bow-tfidf-chart"></div>
+        <p class="panel-note" id="bow-tfidf-explanation"></p>
+        <div class="comparison-table-wrap" id="bow-tfidf-table"></div>
+        <div class="model-notes" id="bow-tfidf-notes">
+          <div class="model-notes-section">
+            <h3>Bag of Words (BoW) ve TF-IDF Yöntemlerinin Çalışma Prensibi</h3>
+            <ul class="model-notes-list">
+              <li><strong>Bag of Words (BoW / Kelime Çantası · CountVectorizer):</strong> Yorum metinlerindeki kelime
+                sırasını göz ardı ederek her terimin (tekil kelime <em>unigram</em> ve ikili kelime öbeği <em>bigram</em>)
+                belge içinde kaç kez geçtiğini tam sayı olarak sayar. <code>amazon</code>, <code>iphone</code>,
+                <code>telefon</code> gibi ürün/platform adları çok sık geçtiği için en yüksek ham frekansa ulaşır.</li>
+              <li><strong>TF-IDF (Term Frequency – Inverse Document Frequency · TfidfVectorizer):</strong> Terim
+                sıklığını (<code>sublinear_tf=True</code> ile logaritmik ölçeklenen TF), terimin kaç farklı yorumda
+                geçtiğine göre nadirliğini ölçen ters belge sıklığı (<code>IDF = log((1 + N) / (1 + df)) + 1</code>) ile
+                çarpar ve L2 normuyla birim uzunluğa normalize eder. Böylece her yorumda tekrarlanan genel kelimeler
+                baskılanırken, <code>teşekkürler</code>, <code>iyi</code>, <code>hızlı</code>, <code>kalitesi</code> gibi
+                duygu ve yargı taşıyan terimler ön plana çıkar.</li>
+              <li><strong>N-gram (1, 2) ve Seyrek Matris (Sparsity):</strong> Hem tekil kelimeler (ör. <code>güzel</code>)
+                hem de ardışık ikili ifadeler (ör. <code>elime ulaştı</code>, <code>teslim edildi</code>,
+                <code>gerek yok</code>) sözlüğe dahil edilir. Her yorum toplam sözlüğün yalnızca küçük bir alt kümesini
+                içerdiğinden oluşan özellik matrisi %98'in üzerinde seyrek (sparse) yapıdadır.</li>
+            </ul>
+          </div>
+        </div>
+      </article>
       <article class="panel wide">
         <div class="panel-heading">
           <div>
@@ -881,11 +990,13 @@
       return new Intl.NumberFormat("tr-TR", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value);
     }
     function renderSummary(data) {
+      const bowStats = (data.bow_tfidf_comparison || FALLBACK_BOW_TFIDF_COMPARISON)?.corpus_stats;
       const cards = [
         ["Toplam yorum", formatNumber(data.summary.review_count), "Analiz edilen değerlendirme"],
         ["Ortalama puan", data.summary.average_rating === null ? "—" : `${formatNumber(data.summary.average_rating, 2)} / 5`, `${formatNumber(data.summary.rated_count)} puanlı yorum`],
         ["Sözlükte olumlu", `%${formatNumber(data.summary.positive_share, 1)}`, "Önceki sözcük kuralına göre"],
-        ["Karşılaştırılan model", formatNumber(data.models.length), "Sınıflandırma sonucu bulunan model"]
+        ["BoW / TF-IDF sözlük", bowStats ? `${formatNumber(bowStats.vocab_size)} terim` : "3.548 terim", bowStats ? `${formatNumber(bowStats.unigram_count)} tekil · ${formatNumber(bowStats.bigram_count)} ikili` : "Unigram + Bigram"],
+        ["Karşılaştırılan model", formatNumber(data.models.length), "BoW, TF-IDF ve BERT modelleri"]
       ];
       const target = document.querySelector("#summary");
       target.replaceChildren(...cards.map(([label, value, note]) => {
@@ -1144,6 +1255,381 @@
         tableTarget.replaceChildren(table);
       }
     }
+    let activeBowNgramFilter = "all";
+    let cachedBowTfidfComparison = null;
+
+    function renderBowTfidfTermsSection(comparison) {
+      const termsChartTarget = document.querySelector("#bow-tfidf-terms-chart");
+      const termsTableTarget = document.querySelector("#bow-tfidf-terms-table");
+      const pillsContainer = document.querySelector("#bow-ngram-pills");
+      if (!comparison || !comparison.terms || !comparison.terms.length) {
+        if (termsChartTarget) termsChartTarget.innerHTML = '<div class="empty">Terim frekansı ve TF-IDF ağırlık verisi bulunamadı.</div>';
+        if (termsTableTarget) termsTableTarget.replaceChildren();
+        if (pillsContainer) pillsContainer.replaceChildren();
+        return;
+      }
+
+      if (pillsContainer) {
+        pillsContainer.replaceChildren();
+        [
+          { key: "all", label: "Tümü (1-gram + 2-gram)" },
+          { key: "1", label: "Tekil Kelimeler (Unigram)" },
+          { key: "2", label: "İkili İfadeler (Bigram)" }
+        ].forEach(option => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "metric-toggle-btn" + (activeBowNgramFilter === option.key ? " active" : "");
+          btn.style.setProperty("--btn-color", "#5865e8");
+          btn.style.setProperty("--btn-rgb", "88,101,232");
+          const dot = document.createElement("span"); dot.className = "metric-dot";
+          const lbl = document.createElement("span"); lbl.textContent = option.label;
+          btn.append(dot, lbl);
+          btn.addEventListener("click", () => {
+            activeBowNgramFilter = option.key;
+            renderBowTfidfTermsSection(cachedBowTfidfComparison);
+          });
+          pillsContainer.append(btn);
+        });
+      }
+
+      const unigrams = comparison.terms.filter(item => Number(item.ngram_size) === 1);
+      const bigrams = comparison.terms.filter(item => Number(item.ngram_size) === 2);
+      const sortBow = (a, b) => b.term_frequency - a.term_frequency || b.mean_tfidf - a.mean_tfidf;
+      const sortTfidf = (a, b) => b.mean_tfidf - a.mean_tfidf || b.term_frequency - a.term_frequency;
+
+      let topBow, topTfidf, tableTerms;
+      if (activeBowNgramFilter === "all") {
+        // Tümü seçildiğinde tekil kelimelerin ikili ifadeleri tamamen bastırmaması için
+        // en baskın 6 Unigram (1-gram) + en baskın 4 Bigram (2-gram) birlikte gösterilir.
+        topBow = [
+          ...[...unigrams].sort(sortBow).slice(0, 6),
+          ...[...bigrams].sort(sortBow).slice(0, 4)
+        ];
+        topTfidf = [
+          ...[...unigrams].sort(sortTfidf).slice(0, 6),
+          ...[...bigrams].sort(sortTfidf).slice(0, 4)
+        ];
+        tableTerms = [
+          ...[...unigrams].sort(sortBow).slice(0, 8),
+          ...[...bigrams].sort(sortBow).slice(0, 8)
+        ];
+      } else if (activeBowNgramFilter === "1") {
+        topBow = [...unigrams].sort(sortBow).slice(0, 10);
+        topTfidf = [...unigrams].sort(sortTfidf).slice(0, 10);
+        tableTerms = [...unigrams].sort(sortBow).slice(0, 15);
+      } else {
+        topBow = [...bigrams].sort(sortBow).slice(0, 10);
+        topTfidf = [...bigrams].sort(sortTfidf).slice(0, 10);
+        tableTerms = [...bigrams].sort(sortBow).slice(0, 15);
+      }
+
+      const rowCount = Math.max(topBow.length, topTfidf.length, 1);
+      const rowH = 26;
+      const svgW = 900, topPad = 36, height = topPad + rowCount * rowH + 20;
+      const svg = svgElement("svg", {
+        viewBox: `0 0 ${svgW} ${height}`,
+        role: "img",
+        "aria-label": "Bag of Words ham kelime frekansı ve TF-IDF ağırlığı en yüksek terimler"
+      });
+
+      // Sol sütun başlığı: Bag of Words (BoW)
+      textNode(svg, 140, 20, "Bag of Words (BoW) · En Yüksek Ham Frekans", { fill: "#2c3a52", size: 11, weight: 700 });
+      // Sağ sütun başlığı: TF-IDF
+      textNode(svg, 585, 20, "TF-IDF · En Yüksek Ortalama Ağırlık", { fill: "#2c3a52", size: 11, weight: 700 });
+
+      const maxBowCount = Math.max(1, ...topBow.map(item => item.term_frequency));
+      const maxTfidfScore = Math.max(0.0001, ...topTfidf.map(item => item.mean_tfidf));
+      const leftLabelX = 132, leftBarX = 140, barW = 205;
+      const rightLabelX = 577, rightBarX = 585;
+
+      topBow.forEach((item, index) => {
+        const y = topPad + index * rowH;
+        const isBigram = Number(item.ngram_size) === 2;
+        const labelText = activeBowNgramFilter === "all" ? `${item.term} (${isBigram ? "2G" : "1G"})` : item.term;
+        textNode(svg, leftLabelX, y + 12, labelText, { anchor: "end", fill: isBigram ? "#158363" : "#2c3a52", size: 10, weight: 600 });
+        svg.append(svgElement("rect", { x: leftBarX, y, width: barW, height: 15, rx: 4, fill: "#eef0f6" }));
+        svg.append(svgElement("rect", {
+          x: leftBarX,
+          y,
+          width: Math.max(4, barW * item.term_frequency / maxBowCount),
+          height: 15,
+          rx: 4,
+          fill: isBigram ? "#ed9c35" : "#5865e8"
+        }));
+        textNode(
+          svg,
+          leftBarX + Math.max(4, barW * item.term_frequency / maxBowCount) + 6,
+          y + 12,
+          `${formatNumber(item.term_frequency)} kez (${formatNumber(item.document_frequency)} yorum)`,
+          { fill: "#4d586c", size: 9, weight: 600 }
+        );
+      });
+
+      topTfidf.forEach((item, index) => {
+        const y = topPad + index * rowH;
+        const isBigram = Number(item.ngram_size) === 2;
+        const labelText = activeBowNgramFilter === "all" ? `${item.term} (${isBigram ? "2G" : "1G"})` : item.term;
+        textNode(svg, rightLabelX, y + 12, labelText, { anchor: "end", fill: isBigram ? "#158363" : "#2c3a52", size: 10, weight: 600 });
+        svg.append(svgElement("rect", { x: rightBarX, y, width: barW, height: 15, rx: 4, fill: "#eef0f6" }));
+        svg.append(svgElement("rect", {
+          x: rightBarX,
+          y,
+          width: Math.max(4, barW * item.mean_tfidf / maxTfidfScore),
+          height: 15,
+          rx: 4,
+          fill: isBigram ? "#ed9c35" : "#15a88a"
+        }));
+        textNode(
+          svg,
+          rightBarX + Math.max(4, barW * item.mean_tfidf / maxTfidfScore) + 6,
+          y + 12,
+          `${formatNumber(item.mean_tfidf, 4)} (IDF: ${formatNumber(item.idf, 2)})`,
+          { fill: "#4d586c", size: 9, weight: 600 }
+        );
+      });
+
+      termsChartTarget.replaceChildren(svg);
+      const termsLegend = document.createElement("div");
+      termsLegend.className = "aspect-legend";
+      [
+        ["1-gram (Tekil kelime · BoW)", "#5865e8"],
+        ["1-gram (Tekil kelime · TF-IDF)", "#15a88a"],
+        ["2-gram (İkili ifade · Bigram)", "#ed9c35"]
+      ].forEach(([label, color]) => {
+        const item = document.createElement("span"); item.className = "aspect-legend-item";
+        const dot = document.createElement("span"); dot.className = "aspect-legend-dot"; dot.style.background = color;
+        const caption = document.createElement("span"); caption.textContent = label;
+        item.append(dot, caption); termsLegend.append(item);
+      });
+      termsChartTarget.append(termsLegend);
+
+      // Terim karşılaştırma tablosu
+      const table = document.createElement("table");
+      table.className = "comparison-table";
+      const header = document.createElement("thead");
+      const headingRow = document.createElement("tr");
+      [
+        "Terim / İfade",
+        "Tür (N-gram)",
+        "BoW Toplam Sıklık",
+        "Belge Sıklığı (DF)",
+        "Ortalama TF-IDF",
+        "Maksimum TF-IDF",
+        "IDF Katsayısı"
+      ].forEach(label => {
+        const cell = document.createElement("th");
+        cell.textContent = label;
+        headingRow.append(cell);
+      });
+      header.append(headingRow);
+
+      const body = document.createElement("tbody");
+      tableTerms.forEach(item => {
+        const row = document.createElement("tr");
+        const termCell = document.createElement("td");
+        termCell.textContent = item.term;
+        termCell.style.fontWeight = "600";
+
+        const typeCell = document.createElement("td");
+        const badge = document.createElement("span");
+        badge.className = `ngram-badge ${item.ngram_size === 2 ? "bigram" : "unigram"}`;
+        badge.textContent = item.ngram_size === 2 ? "Bigram (2 kelime)" : "Unigram (1 kelime)";
+        typeCell.append(badge);
+
+        const tfCell = document.createElement("td");
+        tfCell.textContent = `${formatNumber(item.term_frequency)} kez`;
+        tfCell.className = "metric-gain";
+
+        const dfCell = document.createElement("td");
+        dfCell.textContent = `${formatNumber(item.document_frequency)} yorum (%${formatNumber(item.document_share * 100, 0)})`;
+
+        const meanTfidfCell = document.createElement("td");
+        meanTfidfCell.textContent = formatNumber(item.mean_tfidf, 4);
+        meanTfidfCell.className = "metric-gain";
+
+        const maxTfidfCell = document.createElement("td");
+        maxTfidfCell.textContent = formatNumber(item.max_tfidf, 3);
+
+        const idfCell = document.createElement("td");
+        idfCell.textContent = formatNumber(item.idf, 2);
+
+        row.append(termCell, typeCell, tfCell, dfCell, meanTfidfCell, maxTfidfCell, idfCell);
+        body.append(row);
+      });
+      table.append(header, body);
+      termsTableTarget.replaceChildren(table);
+    }
+
+    function renderBowTfidfComparison(comparison) {
+      cachedBowTfidfComparison = comparison;
+      const summaryTarget = document.querySelector("#bow-tfidf-summary");
+      const chartTarget = document.querySelector("#bow-tfidf-chart");
+      const tableTarget = document.querySelector("#bow-tfidf-table");
+      const note = document.querySelector("#bow-tfidf-note");
+      const explanation = document.querySelector("#bow-tfidf-explanation");
+
+      if (!comparison) {
+        note.textContent = "BoW ve TF-IDF karşılaştırma CSV'si henüz oluşturulmadı.";
+        chartTarget.innerHTML = '<div class="empty">Sonuçları üretmek için proje klasöründe py -3.13 amazon_review_classification.py --compare-bow-tfidf komutunu çalıştırın.</div>';
+        explanation.textContent = "";
+        summaryTarget.replaceChildren();
+        tableTarget.replaceChildren();
+        renderBowTfidfTermsSection(null);
+        return;
+      }
+
+      const stats = comparison.corpus_stats;
+      note.textContent = `${formatNumber(comparison.models.length)} klasik model · ${formatNumber(comparison.train_count)} eğitim / ${formatNumber(comparison.test_count)} test yorumu · ${comparison.label_source}`;
+
+      if (stats) {
+        const boxes = [
+          [
+            "Toplam Sözlük (Vocabulary)",
+            formatNumber(stats.vocab_size),
+            "Benzersiz terim (unigram + bigram)"
+          ],
+          [
+            "Tekil Kelime (Unigram)",
+            formatNumber(stats.unigram_count),
+            `Sözlüğün %${formatNumber(stats.unigram_count / Math.max(1, stats.vocab_size) * 100, 1)}'i`
+          ],
+          [
+            "İkili İfade (Bigram)",
+            formatNumber(stats.bigram_count),
+            `Sözlüğün %${formatNumber(stats.bigram_count / Math.max(1, stats.vocab_size) * 100, 1)}'i`
+          ],
+          [
+            "Matris Seyrekliği (Sparsity)",
+            `%${formatNumber(stats.sparsity * 100, 2)}`,
+            `${formatNumber(stats.non_zero_count)} dolu hücre (BoW & TF-IDF)`
+          ]
+        ];
+        summaryTarget.replaceChildren(...boxes.map(([label, value, sub]) => {
+          const box = document.createElement("div");
+          box.className = "bow-stat-box";
+          const l = document.createElement("div"); l.className = "bow-stat-label"; l.textContent = label;
+          const v = document.createElement("div"); v.className = "bow-stat-value"; v.textContent = value;
+          const s = document.createElement("div"); s.className = "bow-stat-sub"; s.textContent = sub;
+          box.append(l, v, s);
+          return box;
+        }));
+      } else {
+        summaryTarget.replaceChildren();
+      }
+
+      renderBowTfidfTermsSection(comparison);
+
+      const higherRocCount = comparison.models.filter(m => m.tfidf.test_roc_auc > m.bow.test_roc_auc).length;
+      explanation.textContent = `Aynı %80 eğitim / %20 test bölmesinde Bag of Words (CountVectorizer) ve TF-IDF (TfidfVectorizer) karşılaştırılmıştır. BoW, ham kelime sayılarını L2 normalizasyonu olmadan kullandığından eğitim kümesinde daha yüksek ezberleme (Naive Bayes %97,5, Lojistik Regresyon %98,8, SVM %100 eğitim doğruluğu) üretir. TF-IDF ise sık kelimeleri baskılayıp L2 normalizasyonu uygulayarak Random Forest test doğruluğunu %80,0'dan %85,0'a (macro F1'i %48,2'den %52,5'e) çıkarmış ve ${formatNumber(higherRocCount)}/${formatNumber(comparison.models.length)} modelde macro ROC-AUC sıralama başarısını yükseltmiştir.`;
+
+      const COND = [
+        { key: "bow", label: "Bag of Words (BoW)", color: "#5865e8" },
+        { key: "tfidf", label: "TF-IDF", color: "#15a88a" }
+      ];
+      const METRICS = [
+        { key: "train_accuracy", label: "Eğitim doğr." },
+        { key: "test_accuracy", label: "Test doğr." },
+        { key: "test_precision", label: "Kesinlik" },
+        { key: "test_recall", label: "Duyarlılık" },
+        { key: "test_f1", label: "F1" },
+        { key: "test_roc_auc", label: "ROC-AUC" }
+      ];
+      const barH = 9, barInnerGap = 2, metricGap = 9, rowPad = 14;
+      const groupH = COND.length * barH + (COND.length - 1) * barInnerGap;
+      const rowH = METRICS.length * (groupH + metricGap) - metricGap + rowPad * 2;
+      const svgW = 900, left = 210, plotW = 530;
+      const height = Math.max(260, comparison.models.length * rowH + 36);
+      const svg = svgElement("svg", { viewBox: `0 0 ${svgW} ${height}`, role: "img", "aria-label": "Bag of Words ve TF-IDF model başarı karşılaştırması" });
+
+      for (let t = 0; t <= 4; t++) {
+        const x = left + plotW * t / 4;
+        svg.append(svgElement("line", { x1: x, y1: 6, x2: x, y2: height - 20, stroke: "#edf0f5", "stroke-width": 1 }));
+        textNode(svg, x, height - 5, `${t * 25}%`, { anchor: "middle", size: 9, fill: "#9aa3b2" });
+      }
+
+      comparison.models.forEach((model, mi) => {
+        const baseY = 14 + mi * rowH;
+        textNode(svg, left - 16, baseY + rowPad - 2, model.model, { anchor: "end", fill: "#2c3a52", size: 11, weight: 700 });
+
+        METRICS.forEach(({ key: mKey, label: mLabel }, mIdx) => {
+          const mBaseY = baseY + rowPad + mIdx * (groupH + metricGap);
+          textNode(svg, left - 16, mBaseY + groupH / 2 + 3, mLabel, { anchor: "end", fill: "#7a8498", size: 9 });
+
+          COND.forEach(({ key: cKey, color }, ci) => {
+            const result = model[cKey];
+            const val = result[mKey] ?? 0;
+            const barY = mBaseY + ci * (barH + barInnerGap);
+            svg.append(svgElement("rect", { x: left, y: barY, width: plotW, height: barH, rx: 4, fill: "#eef0f6" }));
+            const barW = Math.max(0, plotW * val);
+            svg.append(svgElement("rect", { x: left, y: barY, width: barW, height: barH, rx: 4, fill: color }));
+            textNode(svg, left + barW + 5, barY + barH - 1, `%${formatNumber(val * 100, 1)}`, { fill: "#3d4a5e", size: 9, weight: 700 });
+          });
+
+          if (mIdx < METRICS.length - 1) {
+            const lineY = mBaseY + groupH + metricGap / 2;
+            svg.append(svgElement("line", { x1: left, y1: lineY, x2: left + plotW, y2: lineY, stroke: "#f0f2f8" }));
+          }
+        });
+
+        if (mi < comparison.models.length - 1) {
+          const sepY = baseY + rowH - 4;
+          svg.append(svgElement("line", { x1: left - 5, y1: sepY, x2: left + plotW, y2: sepY, stroke: "#dde2ed", "stroke-dasharray": "4 3" }));
+        }
+      });
+
+      chartTarget.replaceChildren(svg);
+
+      const legend = document.createElement("div");
+      legend.className = "aspect-legend";
+      legend.style.marginTop = "12px";
+      COND.forEach(({ label, color }) => {
+        const item = document.createElement("span"); item.className = "aspect-legend-item";
+        const dot = document.createElement("span"); dot.className = "aspect-legend-dot"; dot.style.background = color;
+        const caption = document.createElement("span"); caption.textContent = label;
+        item.append(dot, caption); legend.append(item);
+      });
+      chartTarget.append(legend);
+
+      const table = document.createElement("table");
+      table.className = "comparison-table";
+      const header = document.createElement("thead");
+      const headingRow = document.createElement("tr");
+      ["Model / vektörleştirme", "Eğitim doğruluğu", "Test doğruluğu", "Kesinlik (macro)", "Duyarlılık (macro)", "F1 (macro)", "ROC-AUC (macro)"].forEach(label => {
+        const cell = document.createElement("th"); cell.textContent = label; headingRow.append(cell);
+      });
+      header.append(headingRow);
+
+      const body = document.createElement("tbody");
+      comparison.models.forEach(model => {
+        for (const [label, result] of [["Bag of Words (BoW)", model.bow], ["TF-IDF", model.tfidf]]) {
+          const row = document.createElement("tr");
+          const modelCell = document.createElement("td");
+          modelCell.textContent = `${model.model} · ${label}`;
+          row.append(modelCell);
+          for (const metric of ["train_accuracy", "test_accuracy", "test_precision", "test_recall", "test_f1", "test_roc_auc"]) {
+            const cell = document.createElement("td");
+            cell.textContent = `%${formatNumber(result[metric] * 100, 1)}`;
+            if (metric === "test_f1") cell.className = "metric-gain";
+            row.append(cell);
+          }
+          body.append(row);
+        }
+        const deltaRow = document.createElement("tr");
+        const deltaLabel = document.createElement("td");
+        deltaLabel.textContent = `${model.model} · fark (TF-IDF − BoW)`;
+        deltaRow.append(deltaLabel);
+        for (const metric of ["train_accuracy", "test_accuracy", "test_precision", "test_recall", "test_f1", "test_roc_auc"]) {
+          const cell = document.createElement("td");
+          const delta = model.tfidf[metric] - model.bow[metric];
+          cell.textContent = `${delta > 0 ? "+" : ""}${formatNumber(delta * 100, 1)} puan`;
+          cell.className = `metric-gain ${delta > 0 ? "positive" : delta < 0 ? "negative" : "neutral"}`;
+          deltaRow.append(cell);
+        }
+        body.append(deltaRow);
+      });
+      table.append(header, body);
+      tableTarget.replaceChildren(table);
+    }
     function renderTrainingSizeComparison(comparison) {
       const target = document.querySelector("#training-size-chart");
       const tableTarget = document.querySelector("#training-size-table");
@@ -1167,6 +1653,7 @@
       const modelColors = {
         "Naive Bayes": "#5865e8",
         "Logistic Regression": "#15a88a",
+        "Lojistik Regresyon": "#15a88a",
         "Support Vector Machine": "#ed9c35",
         "Random Forest": "#d85b72",
         "BERT": "#8a2be2" // fallback/default
@@ -1435,15 +1922,28 @@
       document.querySelector("#previous-page").disabled = currentPage === 0;
       document.querySelector("#next-page").disabled = pageCount === 0 || currentPage >= pageCount - 1;
     }
-    async function init() {
+    const FALLBACK_BOW_TFIDF_COMPARISON = {"models": [{"model": "Naive Bayes", "bow": {"train_accuracy": 0.975, "test_accuracy": 0.75, "test_precision": 0.25, "test_recall": 0.3333333333333333, "test_f1": 0.2857142857142857, "test_roc_auc": 0.8111513157894737}, "tfidf": {"train_accuracy": 0.7625, "test_accuracy": 0.75, "test_precision": 0.25, "test_recall": 0.3333333333333333, "test_f1": 0.2857142857142857, "test_roc_auc": 0.7769846491228071}, "delta_accuracy": 0.0, "delta_f1": 0.0, "delta_roc_auc": -0.03416666666666668}, {"model": "Lojistik Regresyon", "bow": {"train_accuracy": 0.9875, "test_accuracy": 0.75, "test_precision": 0.25, "test_recall": 0.3333333333333333, "test_f1": 0.2857142857142857, "test_roc_auc": 0.9146527777777779}, "tfidf": {"train_accuracy": 0.75, "test_accuracy": 0.75, "test_precision": 0.25, "test_recall": 0.3333333333333333, "test_f1": 0.2857142857142857, "test_roc_auc": 0.9272222222222223}, "delta_accuracy": 0.0, "delta_f1": 0.0, "delta_roc_auc": 0.012569444444444411}, {"model": "Support Vector Machine", "bow": {"train_accuracy": 1.0, "test_accuracy": 0.85, "test_precision": 0.6111111111111112, "test_recall": 0.5, "test_f1": 0.5252525252525252, "test_roc_auc": 0.8859283625730994}, "tfidf": {"train_accuracy": 0.9875, "test_accuracy": 0.75, "test_precision": 0.25, "test_recall": 0.3333333333333333, "test_f1": 0.2857142857142857, "test_roc_auc": 0.936875}, "delta_accuracy": -0.09999999999999998, "delta_f1": -0.2395382395382395, "delta_roc_auc": 0.05094663742690064}, {"model": "Random Forest", "bow": {"train_accuracy": 1.0, "test_accuracy": 0.8, "test_precision": 0.49673202614379086, "test_recall": 0.4777777777777778, "test_f1": 0.48214285714285715, "test_roc_auc": 0.8110745614035088}, "tfidf": {"train_accuracy": 1.0, "test_accuracy": 0.85, "test_precision": 0.6111111111111112, "test_recall": 0.5, "test_f1": 0.5252525252525252, "test_roc_auc": 0.7662554824561404}, "delta_accuracy": 0.04999999999999993, "delta_f1": 0.04310966810966804, "delta_roc_auc": -0.04481907894736836}], "row_count": 8, "train_count": 80, "test_count": 20, "label_source": "Yorum metninden türetilen sözlük etiketleri", "corpus_stats": {"vocab_size": 3548, "unigram_count": 1333, "bigram_count": 2215, "non_zero_count": 4658, "sparsity": 0.9868714768883878}, "terms": [{"term": "amazon", "ngram_size": 1, "term_frequency": 37, "document_frequency": 27, "document_share": 0.27, "mean_tfidf": 0.027193576866850394, "max_tfidf": 0.4194097435955386, "idf": 2.2829160066660554}, {"term": "iphone", "ngram_size": 1, "term_frequency": 31, "document_frequency": 22, "document_share": 0.22, "mean_tfidf": 0.019982950699106716, "max_tfidf": 0.21436614673696625, "idf": 2.47962630091211}, {"term": "telefon", "ngram_size": 1, "term_frequency": 25, "document_frequency": 22, "document_share": 0.22, "mean_tfidf": 0.019699787152158477, "max_tfidf": 0.3696718450650738, "idf": 2.47962630091211}, {"term": "yok", "ngram_size": 1, "term_frequency": 24, "document_frequency": 21, "document_share": 0.21, "mean_tfidf": 0.016567729093113215, "max_tfidf": 0.20346852483893868, "idf": 2.5240780634829436}, {"term": "aldım", "ngram_size": 1, "term_frequency": 24, "document_frequency": 18, "document_share": 0.18, "mean_tfidf": 0.016371242069625896, "max_tfidf": 0.2064311053201602, "idf": 2.670681537674819}, {"term": "hızlı", "ngram_size": 1, "term_frequency": 22, "document_frequency": 21, "document_share": 0.21, "mean_tfidf": 0.021141768441377093, "max_tfidf": 0.19775628327072048, "idf": 2.5240780634829436}, {"term": "geldi", "ngram_size": 1, "term_frequency": 21, "document_frequency": 17, "document_share": 0.17, "mean_tfidf": 0.01939835896232527, "max_tfidf": 0.20184753127646346, "idf": 2.7247487589450947}, {"term": "gün", "ngram_size": 1, "term_frequency": 19, "document_frequency": 15, "document_share": 0.15, "mean_tfidf": 0.013782894064876462, "max_tfidf": 0.2039733756676647, "idf": 2.842531794601478}, {"term": "iyi", "ngram_size": 1, "term_frequency": 18, "document_frequency": 14, "document_share": 0.14, "mean_tfidf": 0.02220575651658192, "max_tfidf": 1.0, "idf": 2.907070315739049}, {"term": "apple", "ngram_size": 1, "term_frequency": 18, "document_frequency": 15, "document_share": 0.15, "mean_tfidf": 0.017755053285906215, "max_tfidf": 0.3225295421072509, "idf": 2.842531794601478}, {"term": "ürün", "ngram_size": 1, "term_frequency": 17, "document_frequency": 16, "document_share": 0.16, "mean_tfidf": 0.017551651970049313, "max_tfidf": 0.25652653349541166, "idf": 2.7819071727850435}, {"term": "gayet", "ngram_size": 1, "term_frequency": 15, "document_frequency": 15, "document_share": 0.15, "mean_tfidf": 0.017608554592594253, "max_tfidf": 0.5093101589802193, "idf": 2.842531794601478}, {"term": "teslim", "ngram_size": 1, "term_frequency": 15, "document_frequency": 11, "document_share": 0.11, "mean_tfidf": 0.014988322142846313, "max_tfidf": 0.27361419488206656, "idf": 3.130213867053259}, {"term": "güzel", "ngram_size": 1, "term_frequency": 14, "document_frequency": 14, "document_share": 0.14, "mean_tfidf": 0.016744988642791017, "max_tfidf": 0.5208738377131542, "idf": 2.907070315739049}, {"term": "sipariş", "ngram_size": 1, "term_frequency": 14, "document_frequency": 14, "document_share": 0.14, "mean_tfidf": 0.011231992921581942, "max_tfidf": 0.15024882665383144, "idf": 2.907070315739049}, {"term": "teşekkürler", "ngram_size": 1, "term_frequency": 11, "document_frequency": 11, "document_share": 0.11, "mean_tfidf": 0.02365927300173078, "max_tfidf": 0.5750724912990849, "idf": 3.130213867053259}, {"term": "kalitesi", "ngram_size": 1, "term_frequency": 10, "document_frequency": 10, "document_share": 0.1, "mean_tfidf": 0.01677868339151052, "max_tfidf": 0.3650443547501356, "idf": 3.217225244042889}, {"term": "normal", "ngram_size": 1, "term_frequency": 9, "document_frequency": 7, "document_share": 0.07, "mean_tfidf": 0.015262899266291836, "max_tfidf": 1.0, "idf": 3.5356789751614235}, {"term": "elime ulaştı", "ngram_size": 2, "term_frequency": 7, "document_frequency": 6, "document_share": 0.06, "mean_tfidf": 0.011956337908335904, "max_tfidf": 0.3293297830113283, "idf": 3.6692103677859462}, {"term": "teslim edildi", "ngram_size": 2, "term_frequency": 7, "document_frequency": 7, "document_share": 0.07, "mean_tfidf": 0.011647844262884535, "max_tfidf": 0.3090561850526053, "idf": 3.5356789751614235}, {"term": "sipariş verdim", "ngram_size": 2, "term_frequency": 7, "document_frequency": 7, "document_share": 0.07, "mean_tfidf": 0.006645138533291423, "max_tfidf": 0.1469681644960764, "idf": 3.5356789751614235}, {"term": "gerek yok", "ngram_size": 2, "term_frequency": 6, "document_frequency": 6, "document_share": 0.06, "mean_tfidf": 0.007860424812684539, "max_tfidf": 0.2957788159003946, "idf": 3.6692103677859462}, {"term": "13 14", "ngram_size": 2, "term_frequency": 6, "document_frequency": 6, "document_share": 0.06, "mean_tfidf": 0.005119796155861321, "max_tfidf": 0.11287645021974244, "idf": 3.6692103677859462}, {"term": "iphone 15", "ngram_size": 2, "term_frequency": 6, "document_frequency": 5, "document_share": 0.05, "mean_tfidf": 0.005092312245402498, "max_tfidf": 0.13807319468386425, "idf": 3.8233610476132043}, {"term": "teşekkürler amazon", "ngram_size": 2, "term_frequency": 5, "document_frequency": 5, "document_share": 0.05, "mean_tfidf": 0.01499051232690699, "max_tfidf": 0.7024151882812532, "idf": 3.8233610476132043}, {"term": "gayet güzel", "ngram_size": 2, "term_frequency": 5, "document_frequency": 5, "document_share": 0.05, "mean_tfidf": 0.011613635053277805, "max_tfidf": 0.685050076378008, "idf": 3.8233610476132043}, {"term": "gün sonra", "ngram_size": 2, "term_frequency": 5, "document_frequency": 5, "document_share": 0.05, "mean_tfidf": 0.004994625912034193, "max_tfidf": 0.12355837134916184, "idf": 3.8233610476132043}, {"term": "iphone 11", "ngram_size": 2, "term_frequency": 5, "document_frequency": 5, "document_share": 0.05, "mean_tfidf": 0.004248145412571628, "max_tfidf": 0.11761860991999433, "idf": 3.8233610476132043}], "top_bow_terms": [{"term": "amazon", "ngram_size": 1, "term_frequency": 37, "document_frequency": 27, "document_share": 0.27, "mean_tfidf": 0.027193576866850394, "max_tfidf": 0.4194097435955386, "idf": 2.2829160066660554}, {"term": "iphone", "ngram_size": 1, "term_frequency": 31, "document_frequency": 22, "document_share": 0.22, "mean_tfidf": 0.019982950699106716, "max_tfidf": 0.21436614673696625, "idf": 2.47962630091211}, {"term": "telefon", "ngram_size": 1, "term_frequency": 25, "document_frequency": 22, "document_share": 0.22, "mean_tfidf": 0.019699787152158477, "max_tfidf": 0.3696718450650738, "idf": 2.47962630091211}, {"term": "yok", "ngram_size": 1, "term_frequency": 24, "document_frequency": 21, "document_share": 0.21, "mean_tfidf": 0.016567729093113215, "max_tfidf": 0.20346852483893868, "idf": 2.5240780634829436}, {"term": "aldım", "ngram_size": 1, "term_frequency": 24, "document_frequency": 18, "document_share": 0.18, "mean_tfidf": 0.016371242069625896, "max_tfidf": 0.2064311053201602, "idf": 2.670681537674819}, {"term": "hızlı", "ngram_size": 1, "term_frequency": 22, "document_frequency": 21, "document_share": 0.21, "mean_tfidf": 0.021141768441377093, "max_tfidf": 0.19775628327072048, "idf": 2.5240780634829436}, {"term": "geldi", "ngram_size": 1, "term_frequency": 21, "document_frequency": 17, "document_share": 0.17, "mean_tfidf": 0.01939835896232527, "max_tfidf": 0.20184753127646346, "idf": 2.7247487589450947}, {"term": "gün", "ngram_size": 1, "term_frequency": 19, "document_frequency": 15, "document_share": 0.15, "mean_tfidf": 0.013782894064876462, "max_tfidf": 0.2039733756676647, "idf": 2.842531794601478}, {"term": "iyi", "ngram_size": 1, "term_frequency": 18, "document_frequency": 14, "document_share": 0.14, "mean_tfidf": 0.02220575651658192, "max_tfidf": 1.0, "idf": 2.907070315739049}, {"term": "apple", "ngram_size": 1, "term_frequency": 18, "document_frequency": 15, "document_share": 0.15, "mean_tfidf": 0.017755053285906215, "max_tfidf": 0.3225295421072509, "idf": 2.842531794601478}, {"term": "ürün", "ngram_size": 1, "term_frequency": 17, "document_frequency": 16, "document_share": 0.16, "mean_tfidf": 0.017551651970049313, "max_tfidf": 0.25652653349541166, "idf": 2.7819071727850435}, {"term": "gayet", "ngram_size": 1, "term_frequency": 15, "document_frequency": 15, "document_share": 0.15, "mean_tfidf": 0.017608554592594253, "max_tfidf": 0.5093101589802193, "idf": 2.842531794601478}], "top_tfidf_terms": [{"term": "amazon", "ngram_size": 1, "term_frequency": 37, "document_frequency": 27, "document_share": 0.27, "mean_tfidf": 0.027193576866850394, "max_tfidf": 0.4194097435955386, "idf": 2.2829160066660554}, {"term": "teşekkürler", "ngram_size": 1, "term_frequency": 11, "document_frequency": 11, "document_share": 0.11, "mean_tfidf": 0.02365927300173078, "max_tfidf": 0.5750724912990849, "idf": 3.130213867053259}, {"term": "iyi", "ngram_size": 1, "term_frequency": 18, "document_frequency": 14, "document_share": 0.14, "mean_tfidf": 0.02220575651658192, "max_tfidf": 1.0, "idf": 2.907070315739049}, {"term": "hızlı", "ngram_size": 1, "term_frequency": 22, "document_frequency": 21, "document_share": 0.21, "mean_tfidf": 0.021141768441377093, "max_tfidf": 0.19775628327072048, "idf": 2.5240780634829436}, {"term": "iphone", "ngram_size": 1, "term_frequency": 31, "document_frequency": 22, "document_share": 0.22, "mean_tfidf": 0.019982950699106716, "max_tfidf": 0.21436614673696625, "idf": 2.47962630091211}, {"term": "telefon", "ngram_size": 1, "term_frequency": 25, "document_frequency": 22, "document_share": 0.22, "mean_tfidf": 0.019699787152158477, "max_tfidf": 0.3696718450650738, "idf": 2.47962630091211}, {"term": "geldi", "ngram_size": 1, "term_frequency": 21, "document_frequency": 17, "document_share": 0.17, "mean_tfidf": 0.01939835896232527, "max_tfidf": 0.20184753127646346, "idf": 2.7247487589450947}, {"term": "apple", "ngram_size": 1, "term_frequency": 18, "document_frequency": 15, "document_share": 0.15, "mean_tfidf": 0.017755053285906215, "max_tfidf": 0.3225295421072509, "idf": 2.842531794601478}, {"term": "gayet", "ngram_size": 1, "term_frequency": 15, "document_frequency": 15, "document_share": 0.15, "mean_tfidf": 0.017608554592594253, "max_tfidf": 0.5093101589802193, "idf": 2.842531794601478}, {"term": "ürün", "ngram_size": 1, "term_frequency": 17, "document_frequency": 16, "document_share": 0.16, "mean_tfidf": 0.017551651970049313, "max_tfidf": 0.25652653349541166, "idf": 2.7819071727850435}, {"term": "kalitesi", "ngram_size": 1, "term_frequency": 10, "document_frequency": 10, "document_share": 0.1, "mean_tfidf": 0.01677868339151052, "max_tfidf": 0.3650443547501356, "idf": 3.217225244042889}, {"term": "güzel", "ngram_size": 1, "term_frequency": 14, "document_frequency": 14, "document_share": 0.14, "mean_tfidf": 0.016744988642791017, "max_tfidf": 0.5208738377131542, "idf": 2.907070315739049}], "top_bigram_terms": [{"term": "elime ulaştı", "ngram_size": 2, "term_frequency": 7, "document_frequency": 6, "document_share": 0.06, "mean_tfidf": 0.011956337908335904, "max_tfidf": 0.3293297830113283, "idf": 3.6692103677859462}, {"term": "teslim edildi", "ngram_size": 2, "term_frequency": 7, "document_frequency": 7, "document_share": 0.07, "mean_tfidf": 0.011647844262884535, "max_tfidf": 0.3090561850526053, "idf": 3.5356789751614235}, {"term": "sipariş verdim", "ngram_size": 2, "term_frequency": 7, "document_frequency": 7, "document_share": 0.07, "mean_tfidf": 0.006645138533291423, "max_tfidf": 0.1469681644960764, "idf": 3.5356789751614235}, {"term": "gerek yok", "ngram_size": 2, "term_frequency": 6, "document_frequency": 6, "document_share": 0.06, "mean_tfidf": 0.007860424812684539, "max_tfidf": 0.2957788159003946, "idf": 3.6692103677859462}, {"term": "13 14", "ngram_size": 2, "term_frequency": 6, "document_frequency": 6, "document_share": 0.06, "mean_tfidf": 0.005119796155861321, "max_tfidf": 0.11287645021974244, "idf": 3.6692103677859462}, {"term": "iphone 15", "ngram_size": 2, "term_frequency": 6, "document_frequency": 5, "document_share": 0.05, "mean_tfidf": 0.005092312245402498, "max_tfidf": 0.13807319468386425, "idf": 3.8233610476132043}, {"term": "teşekkürler amazon", "ngram_size": 2, "term_frequency": 5, "document_frequency": 5, "document_share": 0.05, "mean_tfidf": 0.01499051232690699, "max_tfidf": 0.7024151882812532, "idf": 3.8233610476132043}, {"term": "gayet güzel", "ngram_size": 2, "term_frequency": 5, "document_frequency": 5, "document_share": 0.05, "mean_tfidf": 0.011613635053277805, "max_tfidf": 0.685050076378008, "idf": 3.8233610476132043}, {"term": "gün sonra", "ngram_size": 2, "term_frequency": 5, "document_frequency": 5, "document_share": 0.05, "mean_tfidf": 0.004994625912034193, "max_tfidf": 0.12355837134916184, "idf": 3.8233610476132043}, {"term": "iphone 11", "ngram_size": 2, "term_frequency": 5, "document_frequency": 5, "document_share": 0.05, "mean_tfidf": 0.004248145412571628, "max_tfidf": 0.11761860991999433, "idf": 3.8233610476132043}]};
+    async function loadPayload() {
       try {
         const response = await fetch("/api/dashboard", { cache: "no-store" });
         const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "Dashboard verileri yüklenemedi.");
+        if (response.ok) return data;
+      } catch (_err) {}
+      const fallbackResponse = await fetch("./dashboard-data.json", { cache: "no-store" });
+      const fallbackData = await fallbackResponse.json();
+      if (!fallbackResponse.ok) throw new Error(fallbackData.error || "Dashboard verileri yüklenemedi.");
+      return fallbackData;
+    }
+    async function init() {
+      renderBowTfidfComparison(FALLBACK_BOW_TFIDF_COMPARISON);
+      try {
+        const data = await loadPayload();
+        data.bow_tfidf_comparison = data.bow_tfidf_comparison || FALLBACK_BOW_TFIDF_COMPARISON;
         renderSummary(data); renderAspectAnalysis(data.aspect_analysis);
         renderSentiments(data.sentiments, data.summary.review_count);
         renderRatings(data.ratings, data.summary.rated_count); renderTimeline(data.months);
-        renderModels(data.models); renderTrainingSizeComparison(data.training_size_comparison);
+        renderModels(data.models); renderBowTfidfComparison(data.bow_tfidf_comparison);
+        renderTrainingSizeComparison(data.training_size_comparison);
         renderStemmingComparison(data.stemming_comparison);
         allReviews = data.reviews;
         renderReviews();

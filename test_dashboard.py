@@ -58,6 +58,63 @@ def make_stemming_rows() -> list[dict[str, str]]:
     return rows
 
 
+def make_bow_tfidf_rows() -> list[dict[str, str]]:
+    fields = (
+        "train_accuracy",
+        "test_accuracy",
+        "test_precision",
+        "test_recall",
+        "test_f1",
+        "test_roc_auc",
+    )
+    rows = []
+    for vectorizer, offset in (("Bag of Words (BoW)", 0), ("TF-IDF", 0.08)):
+        row = {"model": "Model", "vectorizer": vectorizer}
+        row.update(
+            {
+                metric: str(0.6 + offset)
+                for metric in fields
+            }
+        )
+        rows.append(row)
+    return rows
+
+
+def make_bow_tfidf_term_rows() -> list[dict[str, str]]:
+    return [
+        {
+            "term": "amazon",
+            "ngram_size": "1",
+            "term_frequency": "37",
+            "document_frequency": "27",
+            "document_share": "0.27",
+            "mean_tfidf": "0.027",
+            "max_tfidf": "0.42",
+            "idf": "2.28",
+            "vocab_size": "3548",
+            "unigram_count": "1333",
+            "bigram_count": "2215",
+            "non_zero_count": "4658",
+            "sparsity": "0.9869",
+        },
+        {
+            "term": "elime ulaştı",
+            "ngram_size": "2",
+            "term_frequency": "7",
+            "document_frequency": "6",
+            "document_share": "0.06",
+            "mean_tfidf": "0.012",
+            "max_tfidf": "0.33",
+            "idf": "3.67",
+            "vocab_size": "3548",
+            "unigram_count": "1333",
+            "bigram_count": "2215",
+            "non_zero_count": "4658",
+            "sparsity": "0.9869",
+        },
+    ]
+
+
 def make_aspect_row(review_number: int, short_review: bool = False) -> dict[str, str]:
     row = {
         "review_number": str(review_number),
@@ -199,6 +256,32 @@ class DashboardTests(unittest.TestCase):
                 [{"review": "Ürün çok güzel.", "rating": "", "date": ""} for _ in range(100)],
                 [],
                 training_size_rows=make_training_size_rows()[:-1],
+            )
+
+    def test_includes_bow_tfidf_comparison_and_top_terms(self) -> None:
+        data = build_dashboard_data(
+            [{"review": "Ürün çok güzel.", "rating": "", "date": ""} for _ in range(10)],
+            [],
+            bow_tfidf_rows=make_bow_tfidf_rows(),
+            bow_tfidf_term_rows=make_bow_tfidf_term_rows(),
+        )
+
+        comparison = data["bow_tfidf_comparison"]
+        self.assertEqual(comparison["row_count"], 2)
+        self.assertEqual(comparison["train_count"], 8)
+        self.assertEqual(comparison["test_count"], 2)
+        self.assertAlmostEqual(comparison["models"][0]["delta_f1"], 0.08)
+        self.assertEqual(comparison["corpus_stats"]["vocab_size"], 3548)
+        self.assertEqual(len(comparison["terms"]), 2)
+        self.assertEqual(comparison["top_bow_terms"][0]["term"], "amazon")
+        self.assertEqual(comparison["top_bigram_terms"][0]["term"], "elime ulaştı")
+
+    def test_rejects_unpaired_bow_tfidf_metrics(self) -> None:
+        with self.assertRaisesRegex(ValueError, "ikisi de bulunmalı"):
+            build_dashboard_data(
+                [{"review": "Ürün çok güzel.", "rating": "", "date": ""}],
+                [],
+                bow_tfidf_rows=make_bow_tfidf_rows()[:1],
             )
 
 

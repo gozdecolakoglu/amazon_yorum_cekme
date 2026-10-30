@@ -97,6 +97,23 @@ py -3.13 amazon_review_classification.py --input ".\iphone15_reviews_processed.c
 Veri kümesinde yalnızca 100 yorum ve dengesiz sınıflar bulunduğundan ölçümler
 küçük test kümesinde hesaplanır; sonuçlar bu sınırlılıkla yorumlanmalıdır.
 
+## Bag of Words (BoW) ve TF-IDF çalışması
+
+Aynı dört klasik modeli (`Naive Bayes`, `Lojistik Regresyon`, `Support Vector Machine`,
+`Random Forest`) hem Bag of Words (`CountVectorizer`) hem de TF-IDF (`TfidfVectorizer`)
+özellikleriyle karşılaştırmak ve en baskın unigram/bigram terimlerin frekans ile
+TF-IDF ağırlıklarını çıkarmak için:
+
+```powershell
+py -3.13 amazon_review_classification.py --compare-bow-tfidf
+```
+
+Komut, aynı %80 eğitim / %20 test bölmesinde dört modelin BoW ve TF-IDF metriklerini
+`classification_bow_tfidf_comparison.csv` dosyasına, derlemdeki en yüksek frekanslı
+ve en yüksek ortalama TF-IDF ağırlıklı terimleri (sözlük boyutu ve seyreklik
+istatistikleriyle birlikte) `bow_tfidf_top_terms.csv` dosyasına kaydeder ve yerel
+grafik panelinde (`Bag of Words (BoW) ve TF-IDF çalışması` bölümünde) görselleştirir.
+
 ## Eğitim oranı deneyi
 
 Dört klasik TF-IDF modelini %60, %65, %70, %75, %80 ve %85 eğitim oranlarında
@@ -198,6 +215,7 @@ DOI: 10.38016/jista.1543187](https://dergipark.org.tr/tr/download/article-file/4
 incelemek için proje klasöründe şu komutu çalıştır:
 
 ```powershell
+py -3.13 amazon_review_classification.py --compare-bow-tfidf
 py -3.13 amazon_review_classification.py --compare-stemming
 py -3.13 amazon_review_classification.py --compare-training-size
 py -3.13 amazon_zero_shot_sentiment.py
@@ -207,10 +225,11 @@ py -3.13 dashboard.py
 Ardından [http://127.0.0.1:8000](http://127.0.0.1:8000) adresini aç. Panelde
 ortalama yıldız puanı, hedef bazında olumlu/olumsuz/karma sonuçlar, puan
 dağılımı, aylık yorum sayısı, sözlük tabanlı genel duygu karşılaştırması,
-model metrikleri, eğitim oranı ve stemming karşılaştırmaları ile arama filtresi
-bulunan yorum listesi yer alır. Panel verileri yerel CSV'lerden her istekte
-okur; yorumlar değiştiğinde ilgili analizleri yeniden çalıştırıp sayfayı yenile.
-Sunucuyu kapatmak için terminalde `Ctrl+C` tuşlarına bas.
+model metrikleri, Bag of Words (BoW) ve TF-IDF çalışması, eğitim oranı ve
+stemming karşılaştırmaları ile arama filtresi bulunan yorum listesi yer alır.
+Panel verileri yerel CSV'lerden her istekte okur; yorumlar değiştiğinde ilgili
+analizleri yeniden çalıştırıp sayfayı yenile. Sunucuyu kapatmak için terminalde
+`Ctrl+C` tuşlarına bas.
 
 ## Vercel'e dağıtım
 
@@ -220,6 +239,7 @@ Vercel üzerinde Python analiz betikleri çalışmaz. Sonuçları statik JSON'a
 aktarmak için proje klasöründe:
 
 ```powershell
+py -3.13 amazon_review_classification.py --compare-bow-tfidf
 py -3.13 amazon_review_classification.py --compare-training-size
 py -3.13 export_dashboard_data.py
 ```
@@ -243,7 +263,7 @@ dağıtımdan önce bu verileri yayımlamak istediğinizi doğrulayın.
 
 Yorum çıkarma/işleme ve sınıflandırma adımlarını tamamladıktan sonra
 `classification_accuracy.csv` dosyasındaki güncel metrikleri inceleyin.
-Mevcut proje verisi ve metriklerinden çıkarılan 200 kelimelik değerlendirme
+Mevcut proje verisi ve metriklerinden çıkarılan değerlendirme
 [Sonuçlar.md](Sonuçlar.md) dosyasındadır. Girdi verisi veya model sonuçları
 değiştiğinde bu değerlendirmedeki veri dağılımını ve metrikleri yeni CSV'ye göre
 güncelleyin; raporun otomatik olarak oluşturulmadığını dikkate alın.

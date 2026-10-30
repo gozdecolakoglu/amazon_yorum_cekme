@@ -72,8 +72,8 @@ yorumlanmamalıdır.
 ### Makaledeki gibi hedef tabanlı sıfır-atış duygu analizi
 
 [Koruyan (2025)](https://doi.org/10.38016/jista.1543187), çok dilli
-`vicgalle/xlm-roberta-large-xnli-anli` modelini sıfır-atış NLI ve çok etiketli
-sınıflandırma ile kullanır; aynı yorumda birden çok kalite boyutunun olumlu
+`vicgalle/xlm-roberta-large-xnli-anli` modeliyle sıfır-atış NLI ve çok etiketli
+sınıflandırma kullanır; aynı yorumda birden çok kalite boyutunun olumlu
 veya olumsuz duygu puanlarını ayrı ayrı hesaplar. Bu projede restoran
 boyutları telefona uyarlanarak cihaz kalitesi/tasarım, performans/pil,
 ekran/kamera, satıcı/teslimat ve fiyat/değer olarak tanımlanmıştır:
@@ -103,6 +103,13 @@ Modellerin eğitim/test doğruluğu ve test metriklerini karşılaştıran grafi
 
 ![Sınıflandırma modellerinin başarı ölçütleri](classification_accuracy.svg)
 
+Bag of Words (BoW) ve TF-IDF vektörleştirme yöntemlerini dört klasik model
+üzerinde karşılaştırmak ve en baskın terimleri çıkarmak için:
+
+```powershell
+py -3.13 amazon_review_classification.py --compare-bow-tfidf
+```
+
 Stemming'in klasik TF-IDF modellerine etkisini ölçmek için:
 
 ```powershell
@@ -125,20 +132,22 @@ py -3.13 plot_classification_accuracy.py
 
 ### Yerel grafik paneli
 
-yorum puanları, sıfır-atış hedef duygu analizi, aylık yorum eğilimi, model
-karşılaştırmaları ve yorumların tamamını tarayıcıda görmek için önce analiz
-komutunu, ardından proje klasöründe paneli başlatın:
+Yorum puanları, Bag of Words (BoW) ve TF-IDF karşılaştırması, sıfır-atış hedef
+duygu analizi, aylık yorum eğilimi, model karşılaştırmaları ve yorumların
+tamamını tarayıcıda görmek için proje klasöründe paneli başlatın:
 
 ```powershell
+py -3.13 amazon_review_classification.py --compare-bow-tfidf
 py -3.13 amazon_zero_shot_sentiment.py
 py -3.13 dashboard.py
 ```
 
 Tarayıcıda [http://127.0.0.1:8000](http://127.0.0.1:8000) adresini açın.
 Panel yalnızca bu bilgisayarda çalışır; grafik verilerini mevcut
-`iphone15_reviews_processed.csv`, `classification_accuracy.csv` ve
+`iphone15_reviews_processed.csv`, `classification_accuracy.csv`,
+`classification_bow_tfidf_comparison.csv`, `bow_tfidf_top_terms.csv` ve
 `iphone15_sentiment_analysis.csv` dosyalarından okur. Yeni yorumlar geldiğinde
-sıfır-atış analizini yeniden çalıştırıp sayfayı yenileyin. Sunucuyu terminalde
+analizleri yeniden çalıştırıp sayfayı yenileyin. Sunucuyu terminalde
 `Ctrl+C` ile kapatın.
 
 Girdi, çıktı veya BERT modelini değiştirmek için:

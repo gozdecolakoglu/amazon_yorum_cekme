@@ -6,13 +6,18 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from amazon_review_classification import (
+    BOW_TFIDF_TERM_FIELDS,
     _evaluation_metrics,
+    extract_bow_tfidf_terms,
     load_classification_data,
+    run_bow_tfidf_comparison,
     run_classical_models,
     run_stemming_comparison,
     run_training_size_comparison,
     sentiment_label,
     split_data,
+    write_bow_tfidf_comparison,
+    write_bow_tfidf_terms,
     write_results,
     write_stemming_comparison,
     write_training_size_comparison,
@@ -267,6 +272,75 @@ class AmazonReviewClassificationTests(unittest.TestCase):
         self.assertEqual(reader.fieldnames[0:4], ["training_size", "train_count", "test_count", "model"])
         self.assertEqual(row["training_size"], "0.6")
         self.assertEqual(row["test_count"], "40")
+
+    def test_compares_bow_and_tfidf_and_extracts_top_terms(self) -> None:
+        texts = [
+            f"{sentiment} telefon hızlı kargo {index}"
+            for sentiment in ("olumsuz", "nötr", "olumlu")
+            for index in range(15)
+        ]
+        labels = [
+            sentiment
+            for sentiment in ("olumsuz", "nötr", "olumlu")
+            for _ in range(15)
+        ]
+        results = run_bow_tfidf_comparison(texts, labels)
+        self.assertEqual(len(results), 8)
+        for model in (
+            "Naive Bayes",
+            "Lojistik Regresyon",
+            "Support Vector Machine",
+            "Random Forest",
+        ):
+            pair = [row for row in results if row["model"] == model]
+            self.assertEqual(
+                {row["vectorizer"] for row in pair},
+                {"Bag of Words (BoW)", "TF-IDF"},
+            )
+
+        with TemporaryDirectory() as directory:
+            input_path = Path(directory) / "processed.csv"
+            with input_path.open("w", encoding="utf-8-sig", newline="") as output_file:
+                writer = csv.DictWriter(
+                    output_file,
+                    fieldnames=("review", "stopword_removed_tokens"),
+                )
+                writer.writeheader()
+                writer.writerow(
+                    {
+                        "review": "Telefon hızlı geldi çok güzel",
+                        "stopword_removed_tokens": "telefon hızlı geldi güzel",
+                    }
+                )
+                writer.writerow(
+                    {
+                        "review": "Telefon hızlı kargo teşekkürler",
+                        "stopword_removed_tokens": "telefon hızlı kargo teşekkürler",
+                    }
+                )
+
+            term_rows = extract_bow_tfidf_terms(input_path, top_n=5)
+            self.assertGreater(len(term_rows), 0)
+            self.assertEqual(term_rows[0]["term"], "hızlı" if term_rows[0]["term"] == "hızlı" else "telefon")
+            self.assertEqual(term_rows[0]["term_frequency"], 2)
+
+            comp_path = Path(directory) / "bow_tfidf.csv"
+            terms_path = Path(directory) / "terms.csv"
+            write_bow_tfidf_comparison(results, comp_path)
+            write_bow_tfidf_terms(term_rows, terms_path)
+
+            with comp_path.open(encoding="utf-8-sig", newline="") as source:
+                comp_reader = csv.DictReader(source)
+                saved_comp = list(comp_reader)
+            with terms_path.open(encoding="utf-8-sig", newline="") as source:
+                terms_reader = csv.DictReader(source)
+                saved_terms = list(terms_reader)
+
+        self.assertEqual(len(saved_comp), 8)
+        self.assertIn("vectorizer", comp_reader.fieldnames or ())
+        self.assertEqual(tuple(terms_reader.fieldnames or ()), BOW_TFIDF_TERM_FIELDS)
+        self.assertEqual(len(saved_terms), len(term_rows))
+
 
 if __name__ == "__main__":
     unittest.main()

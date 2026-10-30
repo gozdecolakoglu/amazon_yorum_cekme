@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Sequence
 
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.naive_bayes import MultinomialNB
@@ -22,8 +22,26 @@ DEFAULT_INPUT = Path("iphone15_reviews_processed.csv")
 DEFAULT_OUTPUT = Path("classification_accuracy.csv")
 DEFAULT_STEMMING_OUTPUT = Path("classification_stemming_comparison.csv")
 DEFAULT_TRAINING_SIZE_OUTPUT = Path("classification_training_size_comparison.csv")
+DEFAULT_BOW_TFIDF_OUTPUT = Path("classification_bow_tfidf_comparison.csv")
+DEFAULT_BOW_TFIDF_TERMS_OUTPUT = Path("bow_tfidf_top_terms.csv")
 DEFAULT_BERT_MODEL = "dbmdz/bert-base-turkish-cased"
 TRAINING_SIZE_PROPORTIONS = (0.6, 0.65, 0.7, 0.75, 0.8, 0.85)
+VECTORIZER_NAMES = ("Bag of Words (BoW)", "TF-IDF")
+BOW_TFIDF_TERM_FIELDS = (
+    "term",
+    "ngram_size",
+    "term_frequency",
+    "document_frequency",
+    "document_share",
+    "mean_tfidf",
+    "max_tfidf",
+    "idf",
+    "vocab_size",
+    "unigram_count",
+    "bigram_count",
+    "non_zero_count",
+    "sparsity",
+)
 # Etiket sırası BERT sınıf numaralarıyla eşleştiğinden bütün BERT işlemlerinde sabit tutulur.
 LABELS = ("olumsuz", "nötr", "olumlu")
 TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
@@ -237,13 +255,16 @@ def run_classical_models(
     y_train: Sequence[str],
     x_test: Sequence[str],
     y_test: Sequence[str],
+    vectorizer: CountVectorizer | TfidfVectorizer | None = None,
 ) -> list[dict[str, str | float]]:
-    """TF-IDF özellikleriyle Naive Bayes, lojistik regresyon, SVM ve Random Forest eğitir."""
+    """Seçilen vektörleştirici (varsayılan TF-IDF) ile dört klasik modeli eğitir."""
     # N-gramlar tek sözcüklerin yanında "çok iyi" gibi kısa ifadeleri de yakalar.
     # Vektörleştirici yalnızca eğitim metinlerine uydurulur; test bilgisinin sızması engellenir.
-    vectorizer = TfidfVectorizer(ngram_range=(1, 2), max_features=20_000, sublinear_tf=True)
-    train_vectors = vectorizer.fit_transform(x_train)
-    test_vectors = vectorizer.transform(x_test)
+    active_vectorizer = vectorizer or TfidfVectorizer(
+        ngram_range=(1, 2), max_features=20_000, sublinear_tf=True
+    )
+    train_vectors = active_vectorizer.fit_transform(x_train)
+    test_vectors = active_vectorizer.transform(x_test)
     models = (
         # Dört algoritmaya aynı özellikleri vermek, ölçümleri yöntemler arasında karşılaştırır.
         ("Naive Bayes", MultinomialNB()),
@@ -442,6 +463,130 @@ def run_stemming_comparison(
     return results
 
 
+def run_bow_tfidf_comparison(
+    texts: Sequence[str],
+    labels: Sequence[str],
+) -> list[dict[str, str | float]]:
+    """Compare classical models with Bag of Words (CountVectorizer) and TF-IDF on the same split."""
+    x_train, x_test, y_train, y_test = split_data(texts, labels)
+    vectorizers = (
+        ("Bag of Words (BoW)", CountVectorizer(ngram_range=(1, 2), max_features=20_000)),
+        (
+            "TF-IDF",
+            TfidfVectorizer(ngram_range=(1, 2), max_features=20_000, sublinear_tf=True),
+        ),
+    )
+    results: list[dict[str, str | float]] = []
+    for vectorizer_name, vectorizer in vectorizers:
+        model_results = run_classical_models(
+            x_train,
+            y_train,
+            x_test,
+            y_test,
+            vectorizer=vectorizer,
+        )
+        results.extend(
+            {"vectorizer": vectorizer_name, **model_result}
+            for model_result in model_results
+        )
+    return results
+
+
+def extract_bow_tfidf_terms(
+    input_path: Path,
+    top_n: int = 15,
+) -> list[dict[str, str | int | float]]:
+    """Extract top corpus terms with Bag of Words frequencies, TF-IDF weights, and matrix stats."""
+    if not input_path.is_file():
+        raise FileNotFoundError(f"Processed review CSV does not exist: {input_path}")
+    if top_n < 1:
+        raise ValueError("top_n must be at least 1.")
+
+    corpus_texts: list[str] = []
+    with input_path.open("r", encoding="utf-8-sig", newline="") as input_file:
+        reader = csv.DictReader(input_file)
+        if not reader.fieldnames or "review" not in reader.fieldnames:
+            raise ValueError("Input CSV must contain a 'review' column.")
+        for row_number, row in enumerate(reader, start=2):
+            review = (row.get("review") or "").strip()
+            if not review:
+                raise ValueError(f"Review text is empty at CSV row {row_number}.")
+            cleaned = (row.get("stopword_removed_tokens") or "").strip()
+            corpus_texts.append(cleaned if cleaned else review)
+
+    if not corpus_texts:
+        raise ValueError(f"No review rows were found in {input_path}.")
+
+    bow_vectorizer = CountVectorizer(ngram_range=(1, 2), max_features=20_000)
+    tfidf_vectorizer = TfidfVectorizer(
+        ngram_range=(1, 2), max_features=20_000, sublinear_tf=True
+    )
+    bow_matrix = bow_vectorizer.fit_transform(corpus_texts)
+    tfidf_matrix = tfidf_vectorizer.fit_transform(corpus_texts)
+
+    vocab = bow_vectorizer.get_feature_names_out()
+    doc_count = len(corpus_texts)
+    vocab_size = int(len(vocab))
+    unigram_count = sum(1 for term in vocab if " " not in term)
+    bigram_count = vocab_size - unigram_count
+    non_zero_count = int(bow_matrix.nnz)
+    total_cells = max(1, doc_count * vocab_size)
+    sparsity = float(1.0 - (non_zero_count / total_cells))
+
+    term_counts = bow_matrix.sum(axis=0).A1
+    doc_frequencies = (bow_matrix > 0).sum(axis=0).A1
+    mean_tfidf_scores = tfidf_matrix.mean(axis=0).A1
+    max_tfidf_scores = tfidf_matrix.max(axis=0).toarray().ravel()
+    idf_scores = tfidf_vectorizer.idf_
+
+    all_indices = list(range(vocab_size))
+    top_bow_indices = sorted(
+        all_indices,
+        key=lambda idx: (int(term_counts[idx]), float(mean_tfidf_scores[idx])),
+        reverse=True,
+    )[:top_n]
+    top_tfidf_indices = sorted(
+        all_indices,
+        key=lambda idx: (float(mean_tfidf_scores[idx]), int(term_counts[idx])),
+        reverse=True,
+    )[:top_n]
+    bigram_indices = [idx for idx in all_indices if " " in str(vocab[idx])]
+    top_bigram_indices = sorted(
+        bigram_indices,
+        key=lambda idx: (int(term_counts[idx]), float(mean_tfidf_scores[idx])),
+        reverse=True,
+    )[: min(top_n, 10)]
+
+    selected_indices = sorted(
+        set(top_bow_indices) | set(top_tfidf_indices) | set(top_bigram_indices),
+        key=lambda idx: (int(term_counts[idx]), float(mean_tfidf_scores[idx])),
+        reverse=True,
+    )
+
+    rows: list[dict[str, str | int | float]] = []
+    for idx in selected_indices:
+        term = str(vocab[idx])
+        doc_freq = int(doc_frequencies[idx])
+        rows.append(
+            {
+                "term": term,
+                "ngram_size": 2 if " " in term else 1,
+                "term_frequency": int(term_counts[idx]),
+                "document_frequency": doc_freq,
+                "document_share": float(doc_freq / doc_count),
+                "mean_tfidf": float(mean_tfidf_scores[idx]),
+                "max_tfidf": float(max_tfidf_scores[idx]),
+                "idf": float(idf_scores[idx]),
+                "vocab_size": vocab_size,
+                "unigram_count": unigram_count,
+                "bigram_count": bigram_count,
+                "non_zero_count": non_zero_count,
+                "sparsity": sparsity,
+            }
+        )
+    return rows
+
+
 def run_training_size_comparison(
     texts: Sequence[str],
     labels: Sequence[str],
@@ -517,6 +662,45 @@ def write_stemming_comparison(
         writer.writerows(results)
 
 
+def write_bow_tfidf_comparison(
+    results: Sequence[dict[str, str | float]],
+    output_path: Path,
+) -> None:
+    """Save paired Bag of Words and TF-IDF model metrics to a dashboard-ready CSV."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8-sig", newline="") as output_file:
+        writer = csv.DictWriter(
+            output_file,
+            fieldnames=(
+                "vectorizer",
+                "model",
+                "train_accuracy",
+                "test_accuracy",
+                "test_precision",
+                "test_recall",
+                "test_f1",
+                "test_roc_auc",
+            ),
+        )
+        writer.writeheader()
+        writer.writerows(results)
+
+
+def write_bow_tfidf_terms(
+    rows: Sequence[dict[str, str | int | float]],
+    output_path: Path,
+) -> None:
+    """Save top Bag of Words and TF-IDF corpus terms and matrix stats to CSV."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8-sig", newline="") as output_file:
+        writer = csv.DictWriter(
+            output_file,
+            fieldnames=BOW_TFIDF_TERM_FIELDS,
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+
+
 def print_results(results: Sequence[dict[str, str | float]]) -> None:
     # CSV'deki 0–1 oranları yüzde biçiminde gösterilerek modeller kolay karşılaştırılır.
     print(
@@ -527,6 +711,8 @@ def print_results(results: Sequence[dict[str, str | float]]) -> None:
         model_label = str(result["model"])
         if "preprocessing" in result:
             model_label = f"{model_label} ({result['preprocessing']})"
+        if "vectorizer" in result:
+            model_label = f"{model_label} ({result['vectorizer']})"
         if "training_size" in result:
             model_label = f"{model_label} ({result['training_size']:.0%} eğitim)"
         print(
@@ -570,6 +756,23 @@ def main() -> None:
         help="CSV path for the training-size comparison.",
     )
     parser.add_argument(
+        "--compare-bow-tfidf",
+        action="store_true",
+        help="Compare the four classical models with Bag of Words and TF-IDF and extract top terms, then exit.",
+    )
+    parser.add_argument(
+        "--bow-tfidf-output",
+        type=Path,
+        default=DEFAULT_BOW_TFIDF_OUTPUT,
+        help="CSV path for the Bag of Words vs TF-IDF model comparison.",
+    )
+    parser.add_argument(
+        "--bow-tfidf-terms-output",
+        type=Path,
+        default=DEFAULT_BOW_TFIDF_TERMS_OUTPUT,
+        help="CSV path for the Bag of Words and TF-IDF top terms.",
+    )
+    parser.add_argument(
         "--bert-model",
         default=DEFAULT_BERT_MODEL,
         help="Hugging Face Turkish BERT model identifier or local model directory.",
@@ -589,6 +792,16 @@ def main() -> None:
         write_training_size_comparison(comparison, args.training_size_output)
         print_results(comparison)
         print(f"\nTraining-size comparison saved: {args.training_size_output}")
+        return
+
+    if args.compare_bow_tfidf:
+        comparison = run_bow_tfidf_comparison(texts, labels)
+        write_bow_tfidf_comparison(comparison, args.bow_tfidf_output)
+        term_rows = extract_bow_tfidf_terms(args.input)
+        write_bow_tfidf_terms(term_rows, args.bow_tfidf_terms_output)
+        print_results(comparison)
+        print(f"\nBoW vs TF-IDF model comparison saved: {args.bow_tfidf_output}")
+        print(f"BoW vs TF-IDF top terms saved: {args.bow_tfidf_terms_output}")
         return
 
     x_train, x_test, y_train, y_test = split_data(texts, labels)

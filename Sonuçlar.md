@@ -1,5 +1,36 @@
 # Sonuçlar
 
+## Bag of Words (BoW) ve TF-IDF karşılaştırma çalışması
+
+100 Amazon iPhone 15 yorumu üzerinde `stopword_removed_tokens` aşamasından sonra
+unigram ve bigram (`ngram_range=(1, 2)`) sözlüğü çıkarılmıştır. Toplam sözlük
+boyutu **3.548 benzersiz terim** (1.333 tekil kelime / unigram ve 2.215 ikili
+ifade / bigram) olup, özellik matrisinin seyrekliği (sparsity) **%98,69**
+(4.658 sıfırdan farklı hücre) olarak ölçülmüştür.
+
+- **Terim Ağırlıklandırma Farkı:** Bag of Words (`CountVectorizer`) ham geçiş
+  sayısını kullandığından `amazon` (37 kez, 27 yorum), `iphone` (31 kez, 22
+  yorum), `telefon` (25 kez, 22 yorum), `aldım` (24 kez) ve `yok` (24 kez) en
+  baskın terimler olmuştur. TF-IDF (`TfidfVectorizer`, `sublinear_tf=True`) ise
+  yaygın kelimeleri ters belge sıklığı (IDF) ile baskılayıp L2 normalizasyonu
+  uyguladığı için `teşekkürler` (11 kez geçmesine karşın 0,0237 ortalama TF-IDF
+  ile 2. sırada), `iyi` (0,0222 ile 3. sırada), `hızlı` (0,0211 ile 4. sırada)
+  ve `kalitesi` (0,0168) gibi duygu/değerlendirme terimlerini öne çıkarmıştır.
+
+Aynı sabit tohumlu, sınıf oranlarını koruyan %80 eğitim / %20 test bölmesinde
+dört klasik modelin Bag of Words ve TF-IDF sonuçları:
+
+| Model | Vektörleştirme | Eğitim doğruluğu | Test doğruluğu | Kesinlik (macro) | Duyarlılık (macro) | F1 (macro) | ROC-AUC (macro) |
+|---|---|---:|---:|---:|---:|---:|---:|
+| Naive Bayes | Bag of Words (BoW) | 0,98 | 0,75 | 0,25 | 0,33 | 0,29 | 0,81 |
+| Naive Bayes | TF-IDF | 0,76 | 0,75 | 0,25 | 0,33 | 0,29 | 0,78 |
+| Lojistik Regresyon | Bag of Words (BoW) | 0,99 | 0,75 | 0,25 | 0,33 | 0,29 | 0,91 |
+| Lojistik Regresyon | TF-IDF | 0,75 | 0,75 | 0,25 | 0,33 | 0,29 | 0,93 |
+| Support Vector Machine | Bag of Words (BoW) | 1,00 | 0,85 | 0,61 | 0,50 | 0,53 | 0,89 |
+| Support Vector Machine | TF-IDF | 0,99 | 0,75 | 0,25 | 0,33 | 0,29 | 0,94 |
+| Random Forest | Bag of Words (BoW) | 1,00 | 0,80 | 0,50 | 0,48 | 0,48 | 0,81 |
+| Random Forest | TF-IDF | 1,00 | 0,85 | 0,61 | 0,50 | 0,53 | 0,77 |
+
 ## Stemming var/yok metrik karşılaştırması
 
 Projede 100 Amazon iPhone 15 yorumu vardır. Etiketler yıldız puanından değil,

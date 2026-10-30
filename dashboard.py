@@ -14,7 +14,9 @@ from typing import Any
 from urllib.parse import urlparse
 
 from amazon_review_classification import (
+    BOW_TFIDF_TERM_FIELDS,
     TRAINING_SIZE_PROPORTIONS,
+    VECTORIZER_NAMES,
     sentiment_label,
 )
 from amazon_zero_shot_sentiment import ASPECTS, analysis_fields
@@ -27,6 +29,8 @@ DEFAULT_METRICS = PROJECT_DIR / "classification_accuracy.csv"
 DEFAULT_ASPECT_ANALYSIS = PROJECT_DIR / "iphone15_sentiment_analysis.csv"
 DEFAULT_STEMMING_COMPARISON = PROJECT_DIR / "classification_stemming_comparison.csv"
 DEFAULT_TRAINING_SIZE_COMPARISON = PROJECT_DIR / "classification_training_size_comparison.csv"
+DEFAULT_BOW_TFIDF_COMPARISON = PROJECT_DIR / "classification_bow_tfidf_comparison.csv"
+DEFAULT_BOW_TFIDF_TERMS = PROJECT_DIR / "bow_tfidf_top_terms.csv"
 STEMMING_PREPROCESSING = ("Stemming yok", "Stemming var")
 CLASSIFICATION_MODEL_NAMES = (
     "Naive Bayes",
@@ -107,6 +111,8 @@ def build_dashboard_data(
     aspect_rows: list[dict[str, str]] | None = None,
     stemming_rows: list[dict[str, str]] | None = None,
     training_size_rows: list[dict[str, str]] | None = None,
+    bow_tfidf_rows: list[dict[str, str]] | None = None,
+    bow_tfidf_term_rows: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     """Aggregate review and model CSV data into the dashboard's JSON payload."""
     ratings: Counter[int] = Counter()
@@ -122,6 +128,7 @@ def build_dashboard_data(
     aspect_threshold = None
     stemming_comparison = None
     training_size_comparison = None
+    bow_tfidf_comparison = None
 
     if stemming_rows is not None:
         comparison_by_model: dict[str, dict[str, dict[str, float]]] = {}
@@ -175,6 +182,137 @@ def build_dashboard_data(
             "row_count": len(stemming_rows),
             "test_count": round(len(review_rows) * 0.2),
             "label_source": "Yorum metninden türetilen sözlük etiketleri",
+        }
+
+    if bow_tfidf_rows is not None:
+        bow_tfidf_by_model: dict[str, dict[str, dict[str, float]]] = {}
+        for row_number, comparison in enumerate(bow_tfidf_rows, start=2):
+            model = (comparison.get("model") or "").strip()
+            vectorizer = comparison.get("vectorizer")
+            if not model or vectorizer not in VECTORIZER_NAMES:
+                raise ValueError(
+                    f"BoW/TF-IDF karşılaştırma CSV'sinde {row_number}. satırın model/vektörleştirici bilgisi geçersiz."
+                )
+            model_results = bow_tfidf_by_model.setdefault(model, {})
+            if vectorizer in model_results:
+                raise ValueError(f"{model} modeli için tekrarlı {vectorizer} sonucu var.")
+            metrics: dict[str, float] = {}
+            for metric in CLASSIFICATION_METRICS:
+                try:
+                    value = float(comparison[metric])
+                except (KeyError, TypeError, ValueError) as error:
+                    raise ValueError(
+                        f"BoW/TF-IDF karşılaştırma CSV'sinde {row_number}. satırdaki {metric} değeri geçersiz."
+                    ) from error
+                if not 0 <= value <= 1:
+                    raise ValueError(f"{metric} değeri 0 ile 1 arasında olmalıdır.")
+                metrics[metric] = value
+            model_results[vectorizer] = metrics
+
+        if not bow_tfidf_by_model:
+            raise ValueError("BoW/TF-IDF karşılaştırma CSV'sinde model sonucu bulunamadı.")
+        for model, model_results in bow_tfidf_by_model.items():
+            if set(model_results) != set(VECTORIZER_NAMES):
+                raise ValueError(
+                    f"{model} modelinde Bag of Words (BoW) ve TF-IDF sonuçlarının ikisi de bulunmalı."
+                )
+
+        parsed_terms: list[dict[str, Any]] = []
+        corpus_stats: dict[str, Any] | None = None
+        if bow_tfidf_term_rows is not None:
+            for row_number, term_row in enumerate(bow_tfidf_term_rows, start=2):
+                term = (term_row.get("term") or "").strip()
+                if not term:
+                    raise ValueError(
+                        f"BoW/TF-IDF terim CSV'sinde {row_number}. satırda term alanı boş."
+                    )
+                try:
+                    ngram_size = int(term_row["ngram_size"])
+                    term_frequency = int(term_row["term_frequency"])
+                    document_frequency = int(term_row["document_frequency"])
+                    document_share = float(term_row["document_share"])
+                    mean_tfidf = float(term_row["mean_tfidf"])
+                    max_tfidf = float(term_row["max_tfidf"])
+                    idf = float(term_row["idf"])
+                    vocab_size = int(term_row["vocab_size"])
+                    unigram_count = int(term_row["unigram_count"])
+                    bigram_count = int(term_row["bigram_count"])
+                    non_zero_count = int(term_row["non_zero_count"])
+                    sparsity = float(term_row["sparsity"])
+                except (KeyError, TypeError, ValueError) as error:
+                    raise ValueError(
+                        f"BoW/TF-IDF terim CSV'sinde {row_number}. satırın sayısal değerleri geçersiz."
+                    ) from error
+                if ngram_size not in (1, 2) or term_frequency < 1 or document_frequency < 1:
+                    raise ValueError(
+                        f"BoW/TF-IDF terim CSV'sinde {row_number}. satırın frekans/n-gram bilgisi geçersiz."
+                    )
+                if not (0 <= document_share <= 1 and 0 <= mean_tfidf <= 1 and 0 <= max_tfidf <= 1 and 0 <= sparsity <= 1):
+                    raise ValueError(
+                        f"BoW/TF-IDF terim CSV'sinde {row_number}. satırın oran/TF-IDF değerleri 0 ile 1 arasında olmalı."
+                    )
+                if corpus_stats is None:
+                    corpus_stats = {
+                        "vocab_size": vocab_size,
+                        "unigram_count": unigram_count,
+                        "bigram_count": bigram_count,
+                        "non_zero_count": non_zero_count,
+                        "sparsity": sparsity,
+                    }
+                parsed_terms.append(
+                    {
+                        "term": term,
+                        "ngram_size": ngram_size,
+                        "term_frequency": term_frequency,
+                        "document_frequency": document_frequency,
+                        "document_share": document_share,
+                        "mean_tfidf": mean_tfidf,
+                        "max_tfidf": max_tfidf,
+                        "idf": idf,
+                    }
+                )
+
+        test_count = round(len(review_rows) * 0.2)
+        bow_tfidf_comparison = {
+            "models": [
+                {
+                    "model": model,
+                    "bow": model_results["Bag of Words (BoW)"],
+                    "tfidf": model_results["TF-IDF"],
+                    "delta_accuracy": (
+                        model_results["TF-IDF"]["test_accuracy"]
+                        - model_results["Bag of Words (BoW)"]["test_accuracy"]
+                    ),
+                    "delta_f1": (
+                        model_results["TF-IDF"]["test_f1"]
+                        - model_results["Bag of Words (BoW)"]["test_f1"]
+                    ),
+                    "delta_roc_auc": (
+                        model_results["TF-IDF"]["test_roc_auc"]
+                        - model_results["Bag of Words (BoW)"]["test_roc_auc"]
+                    ),
+                }
+                for model, model_results in bow_tfidf_by_model.items()
+            ],
+            "row_count": len(bow_tfidf_rows),
+            "train_count": len(review_rows) - test_count,
+            "test_count": test_count,
+            "label_source": "Yorum metninden türetilen sözlük etiketleri",
+            "corpus_stats": corpus_stats,
+            "terms": parsed_terms,
+            "top_bow_terms": sorted(
+                parsed_terms,
+                key=lambda item: (item["term_frequency"], item["mean_tfidf"]),
+                reverse=True,
+            )[:12],
+            "top_tfidf_terms": sorted(
+                parsed_terms,
+                key=lambda item: (item["mean_tfidf"], item["term_frequency"]),
+                reverse=True,
+            )[:12],
+            "top_bigram_terms": [
+                item for item in parsed_terms if item["ngram_size"] == 2
+            ][:10],
         }
 
     if training_size_rows is not None:
@@ -396,6 +534,7 @@ def build_dashboard_data(
         "aspect_analysis": aspect_analysis,
         "stemming_comparison": stemming_comparison,
         "training_size_comparison": training_size_comparison,
+        "bow_tfidf_comparison": bow_tfidf_comparison,
         "reviews": reviews,
     }
 
@@ -406,6 +545,8 @@ def load_dashboard_data(
     aspect_analysis_path: Path = DEFAULT_ASPECT_ANALYSIS,
     stemming_comparison_path: Path = DEFAULT_STEMMING_COMPARISON,
     training_size_comparison_path: Path = DEFAULT_TRAINING_SIZE_COMPARISON,
+    bow_tfidf_comparison_path: Path = DEFAULT_BOW_TFIDF_COMPARISON,
+    bow_tfidf_terms_path: Path = DEFAULT_BOW_TFIDF_TERMS,
 ) -> dict[str, Any]:
     if not reviews_path.is_file():
         raise FileNotFoundError(f"Yorum CSV dosyası bulunamadı: {reviews_path}")
@@ -456,12 +597,38 @@ def load_dashboard_data(
                     "Eğitim oranı karşılaştırma CSV'sinde sütunlar eksik; karşılaştırmayı yeniden çalıştırın."
                 )
             training_size_rows = list(reader)
+    bow_tfidf_rows = None
+    if bow_tfidf_comparison_path.is_file():
+        with bow_tfidf_comparison_path.open(encoding="utf-8-sig", newline="") as source:
+            reader = csv.DictReader(source)
+            required_fields = {
+                "vectorizer",
+                "model",
+                *CLASSIFICATION_METRICS,
+            }
+            if not reader.fieldnames or not required_fields.issubset(reader.fieldnames):
+                raise ValueError(
+                    "BoW/TF-IDF karşılaştırma CSV'sinde sütunlar eksik; karşılaştırmayı yeniden çalıştırın."
+                )
+            bow_tfidf_rows = list(reader)
+    bow_tfidf_term_rows = None
+    if bow_tfidf_terms_path.is_file():
+        with bow_tfidf_terms_path.open(encoding="utf-8-sig", newline="") as source:
+            reader = csv.DictReader(source)
+            required_fields = set(BOW_TFIDF_TERM_FIELDS)
+            if not reader.fieldnames or not required_fields.issubset(reader.fieldnames):
+                raise ValueError(
+                    "BoW/TF-IDF terim CSV'sinde sütunlar eksik; karşılaştırmayı yeniden çalıştırın."
+                )
+            bow_tfidf_term_rows = list(reader)
     return build_dashboard_data(
         review_rows,
         read_scores(metrics_path),
         aspect_rows,
         stemming_rows,
         training_size_rows,
+        bow_tfidf_rows,
+        bow_tfidf_term_rows,
     )
 
 
