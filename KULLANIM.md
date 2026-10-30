@@ -114,6 +114,24 @@ ve en yüksek ortalama TF-IDF ağırlıklı terimleri (sözlük boyutu ve seyrek
 istatistikleriyle birlikte) `bow_tfidf_top_terms.csv` dosyasına kaydeder ve yerel
 grafik panelinde (`Bag of Words (BoW) ve TF-IDF çalışması` bölümünde) görselleştirir.
 
+## SMOTE (Sentetik Azınlık Aşırı Örnekleme) çalışması
+
+Eğitim kümesindeki sınıf dengesizliğini (60 olumlu, 14 nötr, 6 olumsuz) Chawla vd.
+(2002) SMOTE algoritmasıyla ($k=5$ en yakın komşu) 60 olumlu, 60 nötr ve 60
+olumsuz (toplam 180 eğitim örneği, +100 sentetik vektör) olacak biçimde
+dengelemek ve dört klasik TF-IDF modelinde (`SMOTE yok` / `SMOTE var`) etkisini
+ölçmek için:
+
+```powershell
+py -3.13 amazon_review_classification.py --compare-smote
+```
+
+Veri sızıntısını önlemek için SMOTE yalnızca eğitim kümesine uygulanır; %20 test
+kümesi gerçek dağılımıyla korunur. Sonuçlar `classification_smote_comparison.csv`
+dosyasına kaydedilir ve yerel grafik panelinde (`SMOTE (Sentetik Azınlık Aşırı
+Örnekleme) çalışması` bölümünde) sınıf dengeleme grafiği, model metrik grafiği,
+fark tablosu ve detaylı açıklamalarla gösterilir.
+
 ## Eğitim oranı deneyi
 
 Dört klasik TF-IDF modelini %60, %65, %70, %75, %80 ve %85 eğitim oranlarında

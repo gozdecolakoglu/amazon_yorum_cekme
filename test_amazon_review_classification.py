@@ -7,11 +7,14 @@ from tempfile import TemporaryDirectory
 
 from amazon_review_classification import (
     BOW_TFIDF_TERM_FIELDS,
+    SMOTE_COMPARISON_FIELDS,
     _evaluation_metrics,
+    apply_smote,
     extract_bow_tfidf_terms,
     load_classification_data,
     run_bow_tfidf_comparison,
     run_classical_models,
+    run_smote_comparison,
     run_stemming_comparison,
     run_training_size_comparison,
     sentiment_label,
@@ -19,6 +22,7 @@ from amazon_review_classification import (
     write_bow_tfidf_comparison,
     write_bow_tfidf_terms,
     write_results,
+    write_smote_comparison,
     write_stemming_comparison,
     write_training_size_comparison,
 )
@@ -340,6 +344,45 @@ class AmazonReviewClassificationTests(unittest.TestCase):
         self.assertIn("vectorizer", comp_reader.fieldnames or ())
         self.assertEqual(tuple(terms_reader.fieldnames or ()), BOW_TFIDF_TERM_FIELDS)
         self.assertEqual(len(saved_terms), len(term_rows))
+
+    def test_compares_smote_and_balances_minority_classes(self) -> None:
+        texts = (
+            [f"olumlu telefon harika memnun {index}" for index in range(25)]
+            + [f"nötr telefon geldi kargo {index}" for index in range(10)]
+            + [f"olumsuz telefon bozuk berbat {index}" for index in range(10)]
+        )
+        labels = ["olumlu"] * 25 + ["nötr"] * 10 + ["olumsuz"] * 10
+
+        results = run_smote_comparison(texts, labels, k_neighbors=3)
+        self.assertEqual(len(results), 8)
+        for model in (
+            "Naive Bayes",
+            "Lojistik Regresyon",
+            "Support Vector Machine",
+            "Random Forest",
+        ):
+            pair = [row for row in results if row["model"] == model]
+            self.assertEqual(
+                {row["smote_status"] for row in pair},
+                {"SMOTE yok", "SMOTE var"},
+            )
+            self.assertEqual(pair[0]["orig_pos_count"], 20)
+            self.assertEqual(pair[0]["orig_neu_count"], 8)
+            self.assertEqual(pair[0]["orig_neg_count"], 8)
+            self.assertEqual(pair[0]["resampled_pos_count"], 20)
+            self.assertEqual(pair[0]["resampled_neu_count"], 20)
+            self.assertEqual(pair[0]["resampled_neg_count"], 20)
+            self.assertEqual(pair[0]["synthetic_count"], 24)
+
+        with TemporaryDirectory() as directory:
+            smote_path = Path(directory) / "smote.csv"
+            write_smote_comparison(results, smote_path)
+            with smote_path.open(encoding="utf-8-sig", newline="") as source:
+                smote_reader = csv.DictReader(source)
+                saved_smote = list(smote_reader)
+
+        self.assertEqual(len(saved_smote), 8)
+        self.assertEqual(tuple(smote_reader.fieldnames or ()), SMOTE_COMPARISON_FIELDS)
 
 
 if __name__ == "__main__":

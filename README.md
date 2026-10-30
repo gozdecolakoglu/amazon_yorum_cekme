@@ -110,6 +110,13 @@ Bag of Words (BoW) ve TF-IDF vektörleştirme yöntemlerini dört klasik model
 py -3.13 amazon_review_classification.py --compare-bow-tfidf
 ```
 
+Eğitim kümesindeki sınıf dengesizliğini SMOTE (Sentetik Azınlık Aşırı Örnekleme)
+ile dengeleyerek dört klasik TF-IDF modelinde SMOTE var/yok etkisini ölçmek için:
+
+```powershell
+py -3.13 amazon_review_classification.py --compare-smote
+```
+
 Stemming'in klasik TF-IDF modellerine etkisini ölçmek için:
 
 ```powershell

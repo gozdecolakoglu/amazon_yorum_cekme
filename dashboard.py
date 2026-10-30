@@ -15,6 +15,8 @@ from urllib.parse import urlparse
 
 from amazon_review_classification import (
     BOW_TFIDF_TERM_FIELDS,
+    SMOTE_COMPARISON_FIELDS,
+    SMOTE_CONDITIONS,
     TRAINING_SIZE_PROPORTIONS,
     VECTORIZER_NAMES,
     sentiment_label,
@@ -31,6 +33,7 @@ DEFAULT_STEMMING_COMPARISON = PROJECT_DIR / "classification_stemming_comparison.
 DEFAULT_TRAINING_SIZE_COMPARISON = PROJECT_DIR / "classification_training_size_comparison.csv"
 DEFAULT_BOW_TFIDF_COMPARISON = PROJECT_DIR / "classification_bow_tfidf_comparison.csv"
 DEFAULT_BOW_TFIDF_TERMS = PROJECT_DIR / "bow_tfidf_top_terms.csv"
+DEFAULT_SMOTE_COMPARISON = PROJECT_DIR / "classification_smote_comparison.csv"
 STEMMING_PREPROCESSING = ("Stemming yok", "Stemming var")
 CLASSIFICATION_MODEL_NAMES = (
     "Naive Bayes",
@@ -113,6 +116,7 @@ def build_dashboard_data(
     training_size_rows: list[dict[str, str]] | None = None,
     bow_tfidf_rows: list[dict[str, str]] | None = None,
     bow_tfidf_term_rows: list[dict[str, str]] | None = None,
+    smote_rows: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     """Aggregate review and model CSV data into the dashboard's JSON payload."""
     ratings: Counter[int] = Counter()
@@ -129,6 +133,7 @@ def build_dashboard_data(
     stemming_comparison = None
     training_size_comparison = None
     bow_tfidf_comparison = None
+    smote_comparison = None
 
     if stemming_rows is not None:
         comparison_by_model: dict[str, dict[str, dict[str, float]]] = {}
@@ -313,6 +318,146 @@ def build_dashboard_data(
             "top_bigram_terms": [
                 item for item in parsed_terms if item["ngram_size"] == 2
             ][:10],
+        }
+
+    if smote_rows is not None:
+        smote_by_model: dict[str, dict[str, dict[str, float]]] = {}
+        class_distribution: dict[str, Any] | None = None
+        for row_number, comparison in enumerate(smote_rows, start=2):
+            model = (comparison.get("model") or "").strip()
+            smote_status = comparison.get("smote_status")
+            if not model or smote_status not in SMOTE_CONDITIONS:
+                raise ValueError(
+                    f"SMOTE karşılaştırma CSV'sinde {row_number}. satırın model/SMOTE durumu geçersiz."
+                )
+            model_results = smote_by_model.setdefault(model, {})
+            if smote_status in model_results:
+                raise ValueError(f"{model} modeli için tekrarlı {smote_status} sonucu var.")
+            metrics: dict[str, float] = {}
+            for metric in CLASSIFICATION_METRICS:
+                try:
+                    value = float(comparison[metric])
+                except (KeyError, TypeError, ValueError) as error:
+                    raise ValueError(
+                        f"SMOTE karşılaştırma CSV'sinde {row_number}. satırdaki {metric} değeri geçersiz."
+                    ) from error
+                if not 0 <= value <= 1:
+                    raise ValueError(f"{metric} değeri 0 ile 1 arasında olmalıdır.")
+                metrics[metric] = value
+            model_results[smote_status] = metrics
+
+            if class_distribution is None and "orig_train_count" in comparison:
+                try:
+                    orig_train_count = int(comparison["orig_train_count"])
+                    resampled_train_count = int(comparison["resampled_train_count"])
+                    synthetic_count = int(comparison["synthetic_count"])
+                    test_count_val = int(comparison["test_count"])
+                    orig_pos = int(comparison["orig_pos_count"])
+                    orig_neu = int(comparison["orig_neu_count"])
+                    orig_neg = int(comparison["orig_neg_count"])
+                    res_pos = int(comparison["resampled_pos_count"])
+                    res_neu = int(comparison["resampled_neu_count"])
+                    res_neg = int(comparison["resampled_neg_count"])
+                    test_pos = int(comparison.get("test_pos_count", 0))
+                    test_neu = int(comparison.get("test_neu_count", 0))
+                    test_neg = int(comparison.get("test_neg_count", 0))
+                    k_neighbors = int(comparison.get("k_neighbors", 5))
+                except (KeyError, TypeError, ValueError) as error:
+                    raise ValueError(
+                        f"SMOTE karşılaştırma CSV'sinde {row_number}. satırın sınıf dağılım adetleri geçersiz."
+                    ) from error
+                class_distribution = {
+                    "orig_train_count": orig_train_count,
+                    "resampled_train_count": resampled_train_count,
+                    "synthetic_count": synthetic_count,
+                    "test_count": test_count_val,
+                    "k_neighbors": k_neighbors,
+                    "before": {
+                        "olumlu": orig_pos,
+                        "nötr": orig_neu,
+                        "olumsuz": orig_neg,
+                    },
+                    "after": {
+                        "olumlu": res_pos,
+                        "nötr": res_neu,
+                        "olumsuz": res_neg,
+                    },
+                    "synthetic_by_class": {
+                        "olumlu": res_pos - orig_pos,
+                        "nötr": res_neu - orig_neu,
+                        "olumsuz": res_neg - orig_neg,
+                    },
+                    "test": {
+                        "olumlu": test_pos,
+                        "nötr": test_neu,
+                        "olumsuz": test_neg,
+                    },
+                }
+
+        if not smote_by_model:
+            raise ValueError("SMOTE karşılaştırma CSV'sinde model sonucu bulunamadı.")
+        for model, model_results in smote_by_model.items():
+            if set(model_results) != set(SMOTE_CONDITIONS):
+                raise ValueError(
+                    f"{model} modelinde SMOTE yok ve SMOTE var sonuçlarının ikisi de bulunmalı."
+                )
+
+        default_test_count = round(len(review_rows) * 0.2)
+        smote_comparison = {
+            "models": [
+                {
+                    "model": model,
+                    "without_smote": model_results["SMOTE yok"],
+                    "with_smote": model_results["SMOTE var"],
+                    "delta_accuracy": (
+                        model_results["SMOTE var"]["test_accuracy"]
+                        - model_results["SMOTE yok"]["test_accuracy"]
+                    ),
+                    "delta_precision": (
+                        model_results["SMOTE var"]["test_precision"]
+                        - model_results["SMOTE yok"]["test_precision"]
+                    ),
+                    "delta_recall": (
+                        model_results["SMOTE var"]["test_recall"]
+                        - model_results["SMOTE yok"]["test_recall"]
+                    ),
+                    "delta_f1": (
+                        model_results["SMOTE var"]["test_f1"]
+                        - model_results["SMOTE yok"]["test_f1"]
+                    ),
+                    "delta_roc_auc": (
+                        model_results["SMOTE var"]["test_roc_auc"]
+                        - model_results["SMOTE yok"]["test_roc_auc"]
+                    ),
+                }
+                for model, model_results in smote_by_model.items()
+            ],
+            "row_count": len(smote_rows),
+            "train_count": (
+                class_distribution["orig_train_count"]
+                if class_distribution
+                else len(review_rows) - default_test_count
+            ),
+            "resampled_train_count": (
+                class_distribution["resampled_train_count"]
+                if class_distribution
+                else None
+            ),
+            "synthetic_count": (
+                class_distribution["synthetic_count"]
+                if class_distribution
+                else None
+            ),
+            "test_count": (
+                class_distribution["test_count"]
+                if class_distribution
+                else default_test_count
+            ),
+            "k_neighbors": (
+                class_distribution["k_neighbors"] if class_distribution else 5
+            ),
+            "class_distribution": class_distribution,
+            "label_source": "Yorum metninden türetilen sözlük etiketleri",
         }
 
     if training_size_rows is not None:
@@ -535,6 +680,7 @@ def build_dashboard_data(
         "stemming_comparison": stemming_comparison,
         "training_size_comparison": training_size_comparison,
         "bow_tfidf_comparison": bow_tfidf_comparison,
+        "smote_comparison": smote_comparison,
         "reviews": reviews,
     }
 
@@ -547,6 +693,7 @@ def load_dashboard_data(
     training_size_comparison_path: Path = DEFAULT_TRAINING_SIZE_COMPARISON,
     bow_tfidf_comparison_path: Path = DEFAULT_BOW_TFIDF_COMPARISON,
     bow_tfidf_terms_path: Path = DEFAULT_BOW_TFIDF_TERMS,
+    smote_comparison_path: Path = DEFAULT_SMOTE_COMPARISON,
 ) -> dict[str, Any]:
     if not reviews_path.is_file():
         raise FileNotFoundError(f"Yorum CSV dosyası bulunamadı: {reviews_path}")
@@ -621,6 +768,20 @@ def load_dashboard_data(
                     "BoW/TF-IDF terim CSV'sinde sütunlar eksik; karşılaştırmayı yeniden çalıştırın."
                 )
             bow_tfidf_term_rows = list(reader)
+    smote_rows = None
+    if smote_comparison_path.is_file():
+        with smote_comparison_path.open(encoding="utf-8-sig", newline="") as source:
+            reader = csv.DictReader(source)
+            required_fields = {
+                "smote_status",
+                "model",
+                *CLASSIFICATION_METRICS,
+            }
+            if not reader.fieldnames or not required_fields.issubset(reader.fieldnames):
+                raise ValueError(
+                    "SMOTE karşılaştırma CSV'sinde sütunlar eksik; karşılaştırmayı yeniden çalıştırın."
+                )
+            smote_rows = list(reader)
     return build_dashboard_data(
         review_rows,
         read_scores(metrics_path),
@@ -629,6 +790,7 @@ def load_dashboard_data(
         training_size_rows,
         bow_tfidf_rows,
         bow_tfidf_term_rows,
+        smote_rows,
     )
 
 

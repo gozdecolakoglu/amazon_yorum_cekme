@@ -187,9 +187,11 @@
 
     #stemming-chart svg,
     #bow-tfidf-chart svg,
-    #bow-tfidf-terms-chart svg {
+    #bow-tfidf-terms-chart svg,
+    #smote-chart svg,
+    #smote-distribution-chart svg {
       height: auto;
-      min-height: 220px;
+      min-height: 200px;
     }
 
     .bow-summary-grid {
@@ -753,6 +755,74 @@
     </header>
     <section class="cards" id="summary" aria-label="Genel bakış"></section>
     <section class="layout">
+      <article class="panel wide" id="smote-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>SMOTE (Sentetik Azınlık Aşırı Örnekleme) çalışması</h2>
+            <p class="panel-note" id="smote-note">SMOTE sınıf dengeleme karşılaştırması bekleniyor.</p>
+          </div>
+        </div>
+        <div class="bow-summary-grid" id="smote-summary"></div>
+        <div class="bow-section-title">
+          <span>1. Eğitim Kümesi Sınıf Dengelenmesi: SMOTE Öncesi (Orijinal) vs SMOTE Sonrası (Sentetik Örneklemeli)</span>
+        </div>
+        <div class="chart" id="smote-distribution-chart"></div>
+        <div class="bow-section-title">
+          <span>2. Sınıflandırma Modellerinde SMOTE Etkisi: SMOTE Yok (Dengesiz Eğitim) vs SMOTE Var (Dengelenmiş Eğitim)</span>
+        </div>
+        <div class="chart" id="smote-chart"></div>
+        <p class="panel-note" id="smote-explanation"></p>
+        <div class="comparison-table-wrap" id="smote-table"></div>
+        <div class="model-notes" id="smote-notes">
+          <div class="model-notes-section">
+            <h3>SMOTE (Synthetic Minority Over-sampling Technique) Nedir ve Nasıl Çalışır?</h3>
+            <ul class="model-notes-list">
+              <li><strong>Sınıf Dengesizliği (Class Imbalance) Problemi:</strong> Mevcut 100 yorumluk veri kümesinde
+                75 olumlu (%75), 18 nötr (%18) ve yalnızca 7 olumsuz (%7) yorum yer alır (%80 eğitim kümesinde:
+                <code>60 olumlu</code>, <code>14 nötr</code>, <code>6 olumsuz</code> — 10:1 çoğunluk/azınlık oranı).
+                Dengesiz eğitim kümesiyle eğitilen standart sınıflandırıcılar (Naive Bayes, Lojistik Regresyon, SVM),
+                toplam hata oranını düşürmek için tüm test yorumlarını baskın sınıf olan “olumlu” olarak tahmin etme
+                eğilimine girer (%75 doğruluk elde edilse de nötr ve olumsuz sınıflar hiç yakalanamadığından macro F1
+                %28,6 seviyesinde kalır).</li>
+              <li><strong>SMOTE Algoritmasının Matematiksel Prensibi (Chawla vd., 2002):</strong> Azınlık sınıflarındaki
+                örnekleri birebir kopyalamak (random oversampling) ezberlemeye yol açtığından, SMOTE TF-IDF özellik
+                uzayında her azınlık örneği (<code>x_i</code>) için aynı sınıftan en yakın <code>k = 5</code> komşuyu
+                (Öklid mesafesiyle) bulur. Rastgele seçilen bir komşu (<code>x_zi</code>) ile örnek arasındaki doğru
+                parçası üzerinde <code>x_yeni = x_i + λ · (x_zi − x_i)</code> (<code>0 ≤ λ ≤ 1</code>) formülüyle
+                doğrusal interpolasyon yaparak <strong>yeni sentetik TF-IDF özellik vektörleri</strong> üretir.</li>
+              <li><strong>Veri Sızıntısını (Data Leakage) Önleme Kuralı:</strong> SMOTE işlemi <strong>yalnızca eğitim
+                kümesine</strong> uygulanmıştır: eğitim kümesindeki 14 nötr yoruma <code>+46 sentetik nötr</code>, 6
+                olumsuz yoruma <code>+54 sentetik olumsuz</code> vektör eklenerek eğitim kümesi 80 örneğin üzerine
+                <code>+100 sentetik örnek</code> ile <strong>180 örneğe (60 olumlu · 60 nötr · 60 olumsuz)</strong>
+                tam dengelenmiştir. Bağımsız %20 test kümesine (15 olumlu, 4 nötr, 1 olumsuz) kesinlikle dokunulmamıştır.</li>
+            </ul>
+          </div>
+          <div class="model-notes-section">
+            <h3>SMOTE Sonuçlarının Model Bazında Yorumu</h3>
+            <ul class="model-notes-list">
+              <li><strong>Naive Bayes (En Yüksek Kazanım · Macro F1: %28,6 → %67,8):</strong> SMOTE öncesinde sınıf
+                önsel olasılıkları (class prior) %75 olumlu sınıfa baskın olduğu için 20 test yorumunun tamamını olumlu
+                tahmin eden Naive Bayes, SMOTE ile sınıf olasılıkları eşitlenince azınlık sınıflarındaki kelime
+                dağılımlarını başarıyla öğrenmiştir. Test doğruluğu <strong>%75,0'dan %80,0'a (+5,0 puan)</strong>,
+                macro kesinlik <strong>%25,0'dan %73,3'e (+48,3 puan)</strong>, macro duyarlılık
+                <strong>%33,3'ten %78,9'a (+45,6 puan)</strong>, macro F1 <strong>%28,6'dan %67,8'e (+39,2 puan)</strong>
+                ve ROC-AUC <strong>%77,7'den %92,2'ye (+14,5 puan)</strong> yükselmiştir.</li>
+              <li><strong>Support Vector Machine - LinearSVC (Test Doğruluğu: %75,0 → %85,0 · Macro F1: %28,6 → %52,5):</strong>
+                Sentetik azınlık vektörleri, doğrusal karar hiper-düzlemini çoğunluk sınıfından uzaklaştırarak marjı
+                dengeli biçimde yeniden konumlandırmıştır. Böylece SVM test doğruluğunu <strong>+10,0 puan</strong>,
+                macro kesinliği <strong>+36,1 puan</strong> ve macro F1 skorunu <strong>+24,0 puan</strong> artırmıştır.</li>
+              <li><strong>Random Forest (ROC-AUC: %76,6 → %87,4):</strong> Model halihazırda
+                <code>class_weight="balanced_subsample"</code> kullandığı için %85,0 test doğruluğunu ve %52,5 macro F1
+                skorunu korumuş; ancak SMOTE ile karar ağaçlarının azınlık sınıfı yapraklarındaki olasılık tahminleri
+                zenginleşerek macro ROC-AUC sıralama başarısı <strong>+10,7 puan</strong> artışla %87,4'e ulaşmıştır.</li>
+              <li><strong>Lojistik Regresyon (Eğitim Doğruluğu: %75,0 → %96,7 · ROC-AUC: %92,7 → %93,2):</strong>
+                L2 regülarizasyonlu Lojistik Regresyon, 3.257 boyutlu seyrek TF-IDF uzayında eğitim kümesini %96,7
+                doğrulukla öğrenmiş ve test ROC-AUC sıralama gücünü %93,2'ye çıkarmıştır; ancak test kümesindeki
+                azınlık örneklerinin kelime örtüşmesi düşük olduğundan olasılık eşiği (argmax) çoğunluk sınıfında kalmıştır.</li>
+            </ul>
+          </div>
+        </div>
+      </article>
       <article class="panel wide" id="bow-tfidf-panel">
         <div class="panel-heading">
           <div>
@@ -1922,6 +1992,276 @@
       document.querySelector("#previous-page").disabled = currentPage === 0;
       document.querySelector("#next-page").disabled = pageCount === 0 || currentPage >= pageCount - 1;
     }
+    function renderSmoteDistributionChart(comparison) {
+      const target = document.querySelector("#smote-distribution-chart");
+      if (!target) return;
+      const dist = comparison?.class_distribution;
+      if (!dist) {
+        target.innerHTML = '<div class="empty">SMOTE sınıf dağılım verisi bulunamadı.</div>';
+        return;
+      }
+
+      const classes = [
+        { key: "olumlu", label: "Olumlu (Çoğunluk Sınıfı)", origColor: "#15a88a", synthColor: "#6fd4be" },
+        { key: "nötr", label: "Nötr (Azınlık Sınıfı)", origColor: "#ed9c35", synthColor: "#f7c98b" },
+        { key: "olumsuz", label: "Olumsuz (En Azınlık Sınıf)", origColor: "#e46c76", synthColor: "#f3aab0" }
+      ];
+
+      const maxVal = Math.max(1, ...classes.map(c => dist.after[c.key] || 0));
+      const svgW = 900, height = 235;
+      const svg = svgElement("svg", {
+        viewBox: `0 0 ${svgW} ${height}`,
+        role: "img",
+        "aria-label": "SMOTE öncesi ve sonrası eğitim kümesi sınıf dağılımı"
+      });
+
+      // Sol grafik: SMOTE Öncesi (Orijinal Eğitim) | Sağ grafik: SMOTE Sonrası (Dengelenmiş Eğitim)
+      textNode(svg, 155, 20, `SMOTE Öncesi Eğitim Kümesi (${formatNumber(dist.orig_train_count)} yorum · Dengesiz)`, { fill: "#2c3a52", size: 11, weight: 700 });
+      textNode(svg, 575, 20, `SMOTE Sonrası Eğitim Kümesi (${formatNumber(dist.resampled_train_count)} yorum · 1:1:1 Dengeli)`, { fill: "#2c3a52", size: 11, weight: 700 });
+
+      const topPad = 42, rowH = 54, barMaxW = 215;
+      const leftLabelX = 147, leftBarX = 155;
+      const rightLabelX = 567, rightBarX = 575;
+
+      classes.forEach((cls, idx) => {
+        const y = topPad + idx * rowH;
+        const origCount = dist.before[cls.key] || 0;
+        const afterCount = dist.after[cls.key] || 0;
+        const synthCount = dist.synthetic_by_class?.[cls.key] ?? Math.max(0, afterCount - origCount);
+        const origShare = dist.orig_train_count ? (origCount / dist.orig_train_count * 100) : 0;
+        const afterShare = dist.resampled_train_count ? (afterCount / dist.resampled_train_count * 100) : 0;
+
+        // Sol: Orijinal Eğitim
+        textNode(svg, leftLabelX, y + 15, cls.label, { anchor: "end", fill: "#2c3a52", size: 10, weight: 600 });
+        svg.append(svgElement("rect", { x: leftBarX, y, width: barMaxW, height: 22, rx: 5, fill: "#eef0f6" }));
+        const wOrig = Math.max(4, barMaxW * origCount / maxVal);
+        svg.append(svgElement("rect", { x: leftBarX, y, width: wOrig, height: 22, rx: 5, fill: cls.origColor }));
+        textNode(
+          svg,
+          leftBarX + wOrig + 7,
+          y + 15,
+          `${formatNumber(origCount)} yorum (%${formatNumber(origShare, 1)})`,
+          { fill: "#3d4a5e", size: 9, weight: 700 }
+        );
+
+        // Sağ: SMOTE Sonrası (Orijinal + Sentetik yığılmış çubuk)
+        textNode(svg, rightLabelX, y + 15, cls.label.split(" ")[0], { anchor: "end", fill: "#2c3a52", size: 10, weight: 600 });
+        svg.append(svgElement("rect", { x: rightBarX, y, width: barMaxW, height: 22, rx: 5, fill: "#eef0f6" }));
+        const wAfterOrig = Math.max(4, barMaxW * origCount / maxVal);
+        const wSynth = Math.max(0, barMaxW * synthCount / maxVal);
+        svg.append(svgElement("rect", { x: rightBarX, y, width: wAfterOrig, height: 22, rx: 5, fill: cls.origColor }));
+        if (synthCount > 0) {
+          svg.append(svgElement("rect", {
+            x: rightBarX + wAfterOrig,
+            y,
+            width: wSynth,
+            height: 22,
+            rx: 4,
+            fill: "#5865e8",
+            opacity: "0.82"
+          }));
+        }
+        const totalBarW = wAfterOrig + wSynth;
+        const synthNote = synthCount > 0 ? `${formatNumber(origCount)} gerçek + ${formatNumber(synthCount)} sentetik = ${formatNumber(afterCount)} (%${formatNumber(afterShare, 1)})` : `${formatNumber(afterCount)} gerçek (%${formatNumber(afterShare, 1)})`;
+        textNode(
+          svg,
+          rightBarX + totalBarW + 7,
+          y + 15,
+          synthNote,
+          { fill: "#3d4a5e", size: 9, weight: 700 }
+        );
+      });
+
+      target.replaceChildren(svg);
+      const legend = document.createElement("div");
+      legend.className = "aspect-legend";
+      [
+        ["Orijinal Olumlu (60)", "#15a88a"],
+        ["Orijinal Nötr (14)", "#ed9c35"],
+        ["Orijinal Olumsuz (6)", "#e46c76"],
+        ["SMOTE Sentetik Örnekler (+46 nötr, +54 olumsuz)", "#5865e8"]
+      ].forEach(([label, color]) => {
+        const item = document.createElement("span"); item.className = "aspect-legend-item";
+        const dot = document.createElement("span"); dot.className = "aspect-legend-dot"; dot.style.background = color;
+        const caption = document.createElement("span"); caption.textContent = label;
+        item.append(dot, caption); legend.append(item);
+      });
+      target.append(legend);
+    }
+
+    function renderSmoteComparison(comparison) {
+      const summaryTarget = document.querySelector("#smote-summary");
+      const chartTarget = document.querySelector("#smote-chart");
+      const tableTarget = document.querySelector("#smote-table");
+      const note = document.querySelector("#smote-note");
+      const explanation = document.querySelector("#smote-explanation");
+
+      if (!comparison) {
+        note.textContent = "SMOTE karşılaştırma CSV'si henüz oluşturulmadı.";
+        chartTarget.innerHTML = '<div class="empty">Sonuçları üretmek için proje klasöründe py -3.13 amazon_review_classification.py --compare-smote komutunu çalıştırın.</div>';
+        explanation.textContent = "";
+        summaryTarget.replaceChildren();
+        tableTarget.replaceChildren();
+        renderSmoteDistributionChart(null);
+        return;
+      }
+
+      const dist = comparison.class_distribution;
+      note.textContent = `${formatNumber(comparison.models.length)} klasik TF-IDF modeli · k=${formatNumber(comparison.k_neighbors || 5)} komşu · ${formatNumber(comparison.train_count)} orijinal → ${formatNumber(comparison.resampled_train_count || 180)} dengelenmiş eğitim yorumu · ${formatNumber(comparison.test_count)} bağımsız test yorumu`;
+
+      if (dist) {
+        const bestF1Model = [...comparison.models].sort((a, b) => b.delta_f1 - a.delta_f1)[0];
+        const boxes = [
+          [
+            "SMOTE Öncesi Eğitim Kümesi",
+            `${formatNumber(dist.orig_train_count)} yorum`,
+            `${formatNumber(dist.before.olumlu)} olumlu · ${formatNumber(dist.before["nötr"])} nötr · ${formatNumber(dist.before.olumsuz)} olumsuz (10:1 oran)`
+          ],
+          [
+            "SMOTE Sonrası Eğitim Kümesi",
+            `${formatNumber(dist.resampled_train_count)} yorum`,
+            `${formatNumber(dist.after.olumlu)} olumlu · ${formatNumber(dist.after["nötr"])} nötr · ${formatNumber(dist.after.olumsuz)} olumsuz (1:1:1 denge)`
+          ],
+          [
+            "Üretilen Sentetik Örnek",
+            `+${formatNumber(dist.synthetic_count)} vektör`,
+            `+${formatNumber(dist.synthetic_by_class["nötr"])} nötr · +${formatNumber(dist.synthetic_by_class.olumsuz)} olumsuz (k=${formatNumber(dist.k_neighbors)} komşu)`
+          ],
+          [
+            "En Yüksek Macro F1 Artışı",
+            bestF1Model ? `+${formatNumber(bestF1Model.delta_f1 * 100, 1)} puan` : "—",
+            bestF1Model ? `${bestF1Model.model} (%${formatNumber(bestF1Model.without_smote.test_f1 * 100, 1)} → %${formatNumber(bestF1Model.with_smote.test_f1 * 100, 1)})` : ""
+          ]
+        ];
+        summaryTarget.replaceChildren(...boxes.map(([label, value, sub]) => {
+          const box = document.createElement("div");
+          box.className = "bow-stat-box";
+          const l = document.createElement("div"); l.className = "bow-stat-label"; l.textContent = label;
+          const v = document.createElement("div"); v.className = "bow-stat-value"; v.textContent = value;
+          const s = document.createElement("div"); s.className = "bow-stat-sub"; s.textContent = sub;
+          box.append(l, v, s);
+          return box;
+        }));
+      } else {
+        summaryTarget.replaceChildren();
+      }
+
+      renderSmoteDistributionChart(comparison);
+
+      const improvedF1Count = comparison.models.filter(m => m.with_smote.test_f1 > m.without_smote.test_f1).length;
+      const improvedRocCount = comparison.models.filter(m => m.with_smote.test_roc_auc > m.without_smote.test_roc_auc).length;
+      explanation.textContent = `Aynı %80 eğitim / %20 test bölmesinde yalnızca eğitim TF-IDF matrisine SMOTE (k=${formatNumber(comparison.k_neighbors || 5)}) uygulanmıştır. SMOTE öncesinde çoğunluk sınıfının (%75 olumlu) baskınlığı yüzünden Naive Bayes, Lojistik Regresyon ve SVM test kümesindeki 20 yorumun tamamını “olumlu” tahmin ederek %28,6 macro F1'de kalmıştır. SMOTE ile azınlık sınıfları (nötr ve olumsuz) 60'ar örneğe dengelendiğinde ${formatNumber(improvedF1Count)}/${formatNumber(comparison.models.length)} modelde macro F1 ve test doğruluğu, ${formatNumber(improvedRocCount)}/${formatNumber(comparison.models.length)} modelde ise macro ROC-AUC yükselmiştir: Naive Bayes macro F1'i %28,6'dan %67,8'e (+39,2 puan), SVM macro F1'i %28,6'dan %52,5'e (+24,0 puan, test doğruluğu %75,0 → %85,0) ve Random Forest ROC-AUC değeri %76,6'dan %87,4'e (+10,7 puan) çıkmıştır.`;
+
+      const COND = [
+        { key: "without_smote", label: "SMOTE yok (Dengesiz eğitim · 80 örnek)", color: "#5865e8" },
+        { key: "with_smote", label: "SMOTE var (Dengelenmiş eğitim · 180 örnek)", color: "#15a88a" }
+      ];
+      const METRICS = [
+        { key: "train_accuracy", label: "Eğitim doğr." },
+        { key: "test_accuracy", label: "Test doğr." },
+        { key: "test_precision", label: "Kesinlik" },
+        { key: "test_recall", label: "Duyarlılık" },
+        { key: "test_f1", label: "F1" },
+        { key: "test_roc_auc", label: "ROC-AUC" }
+      ];
+      const barH = 9, barInnerGap = 2, metricGap = 9, rowPad = 14;
+      const groupH = COND.length * barH + (COND.length - 1) * barInnerGap;
+      const rowH = METRICS.length * (groupH + metricGap) - metricGap + rowPad * 2;
+      const svgW = 900, left = 210, plotW = 530;
+      const height = Math.max(260, comparison.models.length * rowH + 36);
+      const svg = svgElement("svg", { viewBox: `0 0 ${svgW} ${height}`, role: "img", "aria-label": "SMOTE var ve yok model başarı karşılaştırması" });
+
+      for (let t = 0; t <= 4; t++) {
+        const x = left + plotW * t / 4;
+        svg.append(svgElement("line", { x1: x, y1: 6, x2: x, y2: height - 20, stroke: "#edf0f5", "stroke-width": 1 }));
+        textNode(svg, x, height - 5, `${t * 25}%`, { anchor: "middle", size: 9, fill: "#9aa3b2" });
+      }
+
+      comparison.models.forEach((model, mi) => {
+        const baseY = 14 + mi * rowH;
+        textNode(svg, left - 16, baseY + rowPad - 2, model.model, { anchor: "end", fill: "#2c3a52", size: 11, weight: 700 });
+
+        METRICS.forEach(({ key: mKey, label: mLabel }, mIdx) => {
+          const mBaseY = baseY + rowPad + mIdx * (groupH + metricGap);
+          textNode(svg, left - 16, mBaseY + groupH / 2 + 3, mLabel, { anchor: "end", fill: "#7a8498", size: 9 });
+
+          COND.forEach(({ key: cKey, color }, ci) => {
+            const result = model[cKey];
+            const val = result[mKey] ?? 0;
+            const barY = mBaseY + ci * (barH + barInnerGap);
+            svg.append(svgElement("rect", { x: left, y: barY, width: plotW, height: barH, rx: 4, fill: "#eef0f6" }));
+            const barW = Math.max(0, plotW * val);
+            svg.append(svgElement("rect", { x: left, y: barY, width: barW, height: barH, rx: 4, fill: color }));
+            textNode(svg, left + barW + 5, barY + barH - 1, `%${formatNumber(val * 100, 1)}`, { fill: "#3d4a5e", size: 9, weight: 700 });
+          });
+
+          if (mIdx < METRICS.length - 1) {
+            const lineY = mBaseY + groupH + metricGap / 2;
+            svg.append(svgElement("line", { x1: left, y1: lineY, x2: left + plotW, y2: lineY, stroke: "#f0f2f8" }));
+          }
+        });
+
+        if (mi < comparison.models.length - 1) {
+          const sepY = baseY + rowH - 4;
+          svg.append(svgElement("line", { x1: left - 5, y1: sepY, x2: left + plotW, y2: sepY, stroke: "#dde2ed", "stroke-dasharray": "4 3" }));
+        }
+      });
+
+      chartTarget.replaceChildren(svg);
+
+      const legend = document.createElement("div");
+      legend.className = "aspect-legend";
+      legend.style.marginTop = "12px";
+      COND.forEach(({ label, color }) => {
+        const item = document.createElement("span"); item.className = "aspect-legend-item";
+        const dot = document.createElement("span"); dot.className = "aspect-legend-dot"; dot.style.background = color;
+        const caption = document.createElement("span"); caption.textContent = label;
+        item.append(dot, caption); legend.append(item);
+      });
+      chartTarget.append(legend);
+
+      const table = document.createElement("table");
+      table.className = "comparison-table";
+      const header = document.createElement("thead");
+      const headingRow = document.createElement("tr");
+      ["Model / SMOTE durumu", "Eğitim doğruluğu", "Test doğruluğu", "Kesinlik (macro)", "Duyarlılık (macro)", "F1 (macro)", "ROC-AUC (macro)"].forEach(label => {
+        const cell = document.createElement("th"); cell.textContent = label; headingRow.append(cell);
+      });
+      header.append(headingRow);
+
+      const body = document.createElement("tbody");
+      comparison.models.forEach(model => {
+        for (const [label, result] of [["SMOTE yok", model.without_smote], ["SMOTE var", model.with_smote]]) {
+          const row = document.createElement("tr");
+          const modelCell = document.createElement("td");
+          modelCell.textContent = `${model.model} · ${label}`;
+          row.append(modelCell);
+          for (const metric of ["train_accuracy", "test_accuracy", "test_precision", "test_recall", "test_f1", "test_roc_auc"]) {
+            const cell = document.createElement("td");
+            cell.textContent = `%${formatNumber(result[metric] * 100, 1)}`;
+            if (metric === "test_f1") cell.className = "metric-gain";
+            row.append(cell);
+          }
+          body.append(row);
+        }
+        const deltaRow = document.createElement("tr");
+        const deltaLabel = document.createElement("td");
+        deltaLabel.textContent = `${model.model} · SMOTE farkı (var − yok)`;
+        deltaRow.append(deltaLabel);
+        for (const metric of ["train_accuracy", "test_accuracy", "test_precision", "test_recall", "test_f1", "test_roc_auc"]) {
+          const cell = document.createElement("td");
+          const delta = model.with_smote[metric] - model.without_smote[metric];
+          cell.textContent = `${delta > 0 ? "+" : ""}${formatNumber(delta * 100, 1)} puan`;
+          cell.className = `metric-gain ${delta > 0 ? "positive" : delta < 0 ? "negative" : "neutral"}`;
+          deltaRow.append(cell);
+        }
+        body.append(deltaRow);
+      });
+      table.append(header, body);
+      tableTarget.replaceChildren(table);
+    }
+
+    const FALLBACK_SMOTE_COMPARISON = {"models": [{"model": "Naive Bayes", "without_smote": {"train_accuracy": 0.7625, "test_accuracy": 0.75, "test_precision": 0.25, "test_recall": 0.3333333333333333, "test_f1": 0.2857142857142857, "test_roc_auc": 0.7769846491228071}, "with_smote": {"train_accuracy": 1.0, "test_accuracy": 0.8, "test_precision": 0.7333333333333334, "test_recall": 0.7888888888888889, "test_f1": 0.6777777777777777, "test_roc_auc": 0.9220138888888889}, "delta_accuracy": 0.050000000000000044, "delta_precision": 0.4833333333333334, "delta_recall": 0.45555555555555555, "delta_f1": 0.392063492063492, "delta_roc_auc": 0.14502923976608184}, {"model": "Lojistik Regresyon", "without_smote": {"train_accuracy": 0.75, "test_accuracy": 0.75, "test_precision": 0.25, "test_recall": 0.3333333333333333, "test_f1": 0.2857142857142857, "test_roc_auc": 0.9272222222222223}, "with_smote": {"train_accuracy": 0.9666666666666667, "test_accuracy": 0.75, "test_precision": 0.25, "test_recall": 0.3333333333333333, "test_f1": 0.2857142857142857, "test_roc_auc": 0.9316666666666666}, "delta_accuracy": 0.0, "delta_precision": 0.0, "delta_recall": 0.0, "delta_f1": 0.0, "delta_roc_auc": 0.004444444444444362}, {"model": "Support Vector Machine", "without_smote": {"train_accuracy": 0.9875, "test_accuracy": 0.75, "test_precision": 0.25, "test_recall": 0.3333333333333333, "test_f1": 0.2857142857142857, "test_roc_auc": 0.936875}, "with_smote": {"train_accuracy": 1.0, "test_accuracy": 0.85, "test_precision": 0.6111111111111112, "test_recall": 0.5, "test_f1": 0.5252525252525252, "test_roc_auc": 0.9272222222222223}, "delta_accuracy": 0.09999999999999998, "delta_precision": 0.36111111111111116, "delta_recall": 0.16666666666666669, "delta_f1": 0.2395382395382395, "delta_roc_auc": -0.009652777777777732}, {"model": "Random Forest", "without_smote": {"train_accuracy": 1.0, "test_accuracy": 0.85, "test_precision": 0.6111111111111112, "test_recall": 0.5, "test_f1": 0.5252525252525252, "test_roc_auc": 0.7662554824561404}, "with_smote": {"train_accuracy": 1.0, "test_accuracy": 0.85, "test_precision": 0.6111111111111112, "test_recall": 0.5, "test_f1": 0.5252525252525252, "test_roc_auc": 0.87359283625731}, "delta_accuracy": 0.0, "delta_precision": 0.0, "delta_recall": 0.0, "delta_f1": 0.0, "delta_roc_auc": 0.1073373538011696}], "row_count": 8, "train_count": 80, "resampled_train_count": 180, "synthetic_count": 100, "test_count": 20, "k_neighbors": 5, "class_distribution": {"orig_train_count": 80, "resampled_train_count": 180, "synthetic_count": 100, "test_count": 20, "k_neighbors": 5, "before": {"olumlu": 60, "nötr": 14, "olumsuz": 6}, "after": {"olumlu": 60, "nötr": 60, "olumsuz": 60}, "synthetic_by_class": {"olumlu": 0, "nötr": 46, "olumsuz": 54}, "test": {"olumlu": 15, "nötr": 4, "olumsuz": 1}}, "label_source": "Yorum metninden türetilen sözlük etiketleri"};
     const FALLBACK_BOW_TFIDF_COMPARISON = {"models": [{"model": "Naive Bayes", "bow": {"train_accuracy": 0.975, "test_accuracy": 0.75, "test_precision": 0.25, "test_recall": 0.3333333333333333, "test_f1": 0.2857142857142857, "test_roc_auc": 0.8111513157894737}, "tfidf": {"train_accuracy": 0.7625, "test_accuracy": 0.75, "test_precision": 0.25, "test_recall": 0.3333333333333333, "test_f1": 0.2857142857142857, "test_roc_auc": 0.7769846491228071}, "delta_accuracy": 0.0, "delta_f1": 0.0, "delta_roc_auc": -0.03416666666666668}, {"model": "Lojistik Regresyon", "bow": {"train_accuracy": 0.9875, "test_accuracy": 0.75, "test_precision": 0.25, "test_recall": 0.3333333333333333, "test_f1": 0.2857142857142857, "test_roc_auc": 0.9146527777777779}, "tfidf": {"train_accuracy": 0.75, "test_accuracy": 0.75, "test_precision": 0.25, "test_recall": 0.3333333333333333, "test_f1": 0.2857142857142857, "test_roc_auc": 0.9272222222222223}, "delta_accuracy": 0.0, "delta_f1": 0.0, "delta_roc_auc": 0.012569444444444411}, {"model": "Support Vector Machine", "bow": {"train_accuracy": 1.0, "test_accuracy": 0.85, "test_precision": 0.6111111111111112, "test_recall": 0.5, "test_f1": 0.5252525252525252, "test_roc_auc": 0.8859283625730994}, "tfidf": {"train_accuracy": 0.9875, "test_accuracy": 0.75, "test_precision": 0.25, "test_recall": 0.3333333333333333, "test_f1": 0.2857142857142857, "test_roc_auc": 0.936875}, "delta_accuracy": -0.09999999999999998, "delta_f1": -0.2395382395382395, "delta_roc_auc": 0.05094663742690064}, {"model": "Random Forest", "bow": {"train_accuracy": 1.0, "test_accuracy": 0.8, "test_precision": 0.49673202614379086, "test_recall": 0.4777777777777778, "test_f1": 0.48214285714285715, "test_roc_auc": 0.8110745614035088}, "tfidf": {"train_accuracy": 1.0, "test_accuracy": 0.85, "test_precision": 0.6111111111111112, "test_recall": 0.5, "test_f1": 0.5252525252525252, "test_roc_auc": 0.7662554824561404}, "delta_accuracy": 0.04999999999999993, "delta_f1": 0.04310966810966804, "delta_roc_auc": -0.04481907894736836}], "row_count": 8, "train_count": 80, "test_count": 20, "label_source": "Yorum metninden türetilen sözlük etiketleri", "corpus_stats": {"vocab_size": 3548, "unigram_count": 1333, "bigram_count": 2215, "non_zero_count": 4658, "sparsity": 0.9868714768883878}, "terms": [{"term": "amazon", "ngram_size": 1, "term_frequency": 37, "document_frequency": 27, "document_share": 0.27, "mean_tfidf": 0.027193576866850394, "max_tfidf": 0.4194097435955386, "idf": 2.2829160066660554}, {"term": "iphone", "ngram_size": 1, "term_frequency": 31, "document_frequency": 22, "document_share": 0.22, "mean_tfidf": 0.019982950699106716, "max_tfidf": 0.21436614673696625, "idf": 2.47962630091211}, {"term": "telefon", "ngram_size": 1, "term_frequency": 25, "document_frequency": 22, "document_share": 0.22, "mean_tfidf": 0.019699787152158477, "max_tfidf": 0.3696718450650738, "idf": 2.47962630091211}, {"term": "yok", "ngram_size": 1, "term_frequency": 24, "document_frequency": 21, "document_share": 0.21, "mean_tfidf": 0.016567729093113215, "max_tfidf": 0.20346852483893868, "idf": 2.5240780634829436}, {"term": "aldım", "ngram_size": 1, "term_frequency": 24, "document_frequency": 18, "document_share": 0.18, "mean_tfidf": 0.016371242069625896, "max_tfidf": 0.2064311053201602, "idf": 2.670681537674819}, {"term": "hızlı", "ngram_size": 1, "term_frequency": 22, "document_frequency": 21, "document_share": 0.21, "mean_tfidf": 0.021141768441377093, "max_tfidf": 0.19775628327072048, "idf": 2.5240780634829436}, {"term": "geldi", "ngram_size": 1, "term_frequency": 21, "document_frequency": 17, "document_share": 0.17, "mean_tfidf": 0.01939835896232527, "max_tfidf": 0.20184753127646346, "idf": 2.7247487589450947}, {"term": "gün", "ngram_size": 1, "term_frequency": 19, "document_frequency": 15, "document_share": 0.15, "mean_tfidf": 0.013782894064876462, "max_tfidf": 0.2039733756676647, "idf": 2.842531794601478}, {"term": "iyi", "ngram_size": 1, "term_frequency": 18, "document_frequency": 14, "document_share": 0.14, "mean_tfidf": 0.02220575651658192, "max_tfidf": 1.0, "idf": 2.907070315739049}, {"term": "apple", "ngram_size": 1, "term_frequency": 18, "document_frequency": 15, "document_share": 0.15, "mean_tfidf": 0.017755053285906215, "max_tfidf": 0.3225295421072509, "idf": 2.842531794601478}, {"term": "ürün", "ngram_size": 1, "term_frequency": 17, "document_frequency": 16, "document_share": 0.16, "mean_tfidf": 0.017551651970049313, "max_tfidf": 0.25652653349541166, "idf": 2.7819071727850435}, {"term": "gayet", "ngram_size": 1, "term_frequency": 15, "document_frequency": 15, "document_share": 0.15, "mean_tfidf": 0.017608554592594253, "max_tfidf": 0.5093101589802193, "idf": 2.842531794601478}, {"term": "teslim", "ngram_size": 1, "term_frequency": 15, "document_frequency": 11, "document_share": 0.11, "mean_tfidf": 0.014988322142846313, "max_tfidf": 0.27361419488206656, "idf": 3.130213867053259}, {"term": "güzel", "ngram_size": 1, "term_frequency": 14, "document_frequency": 14, "document_share": 0.14, "mean_tfidf": 0.016744988642791017, "max_tfidf": 0.5208738377131542, "idf": 2.907070315739049}, {"term": "sipariş", "ngram_size": 1, "term_frequency": 14, "document_frequency": 14, "document_share": 0.14, "mean_tfidf": 0.011231992921581942, "max_tfidf": 0.15024882665383144, "idf": 2.907070315739049}, {"term": "teşekkürler", "ngram_size": 1, "term_frequency": 11, "document_frequency": 11, "document_share": 0.11, "mean_tfidf": 0.02365927300173078, "max_tfidf": 0.5750724912990849, "idf": 3.130213867053259}, {"term": "kalitesi", "ngram_size": 1, "term_frequency": 10, "document_frequency": 10, "document_share": 0.1, "mean_tfidf": 0.01677868339151052, "max_tfidf": 0.3650443547501356, "idf": 3.217225244042889}, {"term": "normal", "ngram_size": 1, "term_frequency": 9, "document_frequency": 7, "document_share": 0.07, "mean_tfidf": 0.015262899266291836, "max_tfidf": 1.0, "idf": 3.5356789751614235}, {"term": "elime ulaştı", "ngram_size": 2, "term_frequency": 7, "document_frequency": 6, "document_share": 0.06, "mean_tfidf": 0.011956337908335904, "max_tfidf": 0.3293297830113283, "idf": 3.6692103677859462}, {"term": "teslim edildi", "ngram_size": 2, "term_frequency": 7, "document_frequency": 7, "document_share": 0.07, "mean_tfidf": 0.011647844262884535, "max_tfidf": 0.3090561850526053, "idf": 3.5356789751614235}, {"term": "sipariş verdim", "ngram_size": 2, "term_frequency": 7, "document_frequency": 7, "document_share": 0.07, "mean_tfidf": 0.006645138533291423, "max_tfidf": 0.1469681644960764, "idf": 3.5356789751614235}, {"term": "gerek yok", "ngram_size": 2, "term_frequency": 6, "document_frequency": 6, "document_share": 0.06, "mean_tfidf": 0.007860424812684539, "max_tfidf": 0.2957788159003946, "idf": 3.6692103677859462}, {"term": "13 14", "ngram_size": 2, "term_frequency": 6, "document_frequency": 6, "document_share": 0.06, "mean_tfidf": 0.005119796155861321, "max_tfidf": 0.11287645021974244, "idf": 3.6692103677859462}, {"term": "iphone 15", "ngram_size": 2, "term_frequency": 6, "document_frequency": 5, "document_share": 0.05, "mean_tfidf": 0.005092312245402498, "max_tfidf": 0.13807319468386425, "idf": 3.8233610476132043}, {"term": "teşekkürler amazon", "ngram_size": 2, "term_frequency": 5, "document_frequency": 5, "document_share": 0.05, "mean_tfidf": 0.01499051232690699, "max_tfidf": 0.7024151882812532, "idf": 3.8233610476132043}, {"term": "gayet güzel", "ngram_size": 2, "term_frequency": 5, "document_frequency": 5, "document_share": 0.05, "mean_tfidf": 0.011613635053277805, "max_tfidf": 0.685050076378008, "idf": 3.8233610476132043}, {"term": "gün sonra", "ngram_size": 2, "term_frequency": 5, "document_frequency": 5, "document_share": 0.05, "mean_tfidf": 0.004994625912034193, "max_tfidf": 0.12355837134916184, "idf": 3.8233610476132043}, {"term": "iphone 11", "ngram_size": 2, "term_frequency": 5, "document_frequency": 5, "document_share": 0.05, "mean_tfidf": 0.004248145412571628, "max_tfidf": 0.11761860991999433, "idf": 3.8233610476132043}], "top_bow_terms": [{"term": "amazon", "ngram_size": 1, "term_frequency": 37, "document_frequency": 27, "document_share": 0.27, "mean_tfidf": 0.027193576866850394, "max_tfidf": 0.4194097435955386, "idf": 2.2829160066660554}, {"term": "iphone", "ngram_size": 1, "term_frequency": 31, "document_frequency": 22, "document_share": 0.22, "mean_tfidf": 0.019982950699106716, "max_tfidf": 0.21436614673696625, "idf": 2.47962630091211}, {"term": "telefon", "ngram_size": 1, "term_frequency": 25, "document_frequency": 22, "document_share": 0.22, "mean_tfidf": 0.019699787152158477, "max_tfidf": 0.3696718450650738, "idf": 2.47962630091211}, {"term": "yok", "ngram_size": 1, "term_frequency": 24, "document_frequency": 21, "document_share": 0.21, "mean_tfidf": 0.016567729093113215, "max_tfidf": 0.20346852483893868, "idf": 2.5240780634829436}, {"term": "aldım", "ngram_size": 1, "term_frequency": 24, "document_frequency": 18, "document_share": 0.18, "mean_tfidf": 0.016371242069625896, "max_tfidf": 0.2064311053201602, "idf": 2.670681537674819}, {"term": "hızlı", "ngram_size": 1, "term_frequency": 22, "document_frequency": 21, "document_share": 0.21, "mean_tfidf": 0.021141768441377093, "max_tfidf": 0.19775628327072048, "idf": 2.5240780634829436}, {"term": "geldi", "ngram_size": 1, "term_frequency": 21, "document_frequency": 17, "document_share": 0.17, "mean_tfidf": 0.01939835896232527, "max_tfidf": 0.20184753127646346, "idf": 2.7247487589450947}, {"term": "gün", "ngram_size": 1, "term_frequency": 19, "document_frequency": 15, "document_share": 0.15, "mean_tfidf": 0.013782894064876462, "max_tfidf": 0.2039733756676647, "idf": 2.842531794601478}, {"term": "iyi", "ngram_size": 1, "term_frequency": 18, "document_frequency": 14, "document_share": 0.14, "mean_tfidf": 0.02220575651658192, "max_tfidf": 1.0, "idf": 2.907070315739049}, {"term": "apple", "ngram_size": 1, "term_frequency": 18, "document_frequency": 15, "document_share": 0.15, "mean_tfidf": 0.017755053285906215, "max_tfidf": 0.3225295421072509, "idf": 2.842531794601478}, {"term": "ürün", "ngram_size": 1, "term_frequency": 17, "document_frequency": 16, "document_share": 0.16, "mean_tfidf": 0.017551651970049313, "max_tfidf": 0.25652653349541166, "idf": 2.7819071727850435}, {"term": "gayet", "ngram_size": 1, "term_frequency": 15, "document_frequency": 15, "document_share": 0.15, "mean_tfidf": 0.017608554592594253, "max_tfidf": 0.5093101589802193, "idf": 2.842531794601478}], "top_tfidf_terms": [{"term": "amazon", "ngram_size": 1, "term_frequency": 37, "document_frequency": 27, "document_share": 0.27, "mean_tfidf": 0.027193576866850394, "max_tfidf": 0.4194097435955386, "idf": 2.2829160066660554}, {"term": "teşekkürler", "ngram_size": 1, "term_frequency": 11, "document_frequency": 11, "document_share": 0.11, "mean_tfidf": 0.02365927300173078, "max_tfidf": 0.5750724912990849, "idf": 3.130213867053259}, {"term": "iyi", "ngram_size": 1, "term_frequency": 18, "document_frequency": 14, "document_share": 0.14, "mean_tfidf": 0.02220575651658192, "max_tfidf": 1.0, "idf": 2.907070315739049}, {"term": "hızlı", "ngram_size": 1, "term_frequency": 22, "document_frequency": 21, "document_share": 0.21, "mean_tfidf": 0.021141768441377093, "max_tfidf": 0.19775628327072048, "idf": 2.5240780634829436}, {"term": "iphone", "ngram_size": 1, "term_frequency": 31, "document_frequency": 22, "document_share": 0.22, "mean_tfidf": 0.019982950699106716, "max_tfidf": 0.21436614673696625, "idf": 2.47962630091211}, {"term": "telefon", "ngram_size": 1, "term_frequency": 25, "document_frequency": 22, "document_share": 0.22, "mean_tfidf": 0.019699787152158477, "max_tfidf": 0.3696718450650738, "idf": 2.47962630091211}, {"term": "geldi", "ngram_size": 1, "term_frequency": 21, "document_frequency": 17, "document_share": 0.17, "mean_tfidf": 0.01939835896232527, "max_tfidf": 0.20184753127646346, "idf": 2.7247487589450947}, {"term": "apple", "ngram_size": 1, "term_frequency": 18, "document_frequency": 15, "document_share": 0.15, "mean_tfidf": 0.017755053285906215, "max_tfidf": 0.3225295421072509, "idf": 2.842531794601478}, {"term": "gayet", "ngram_size": 1, "term_frequency": 15, "document_frequency": 15, "document_share": 0.15, "mean_tfidf": 0.017608554592594253, "max_tfidf": 0.5093101589802193, "idf": 2.842531794601478}, {"term": "ürün", "ngram_size": 1, "term_frequency": 17, "document_frequency": 16, "document_share": 0.16, "mean_tfidf": 0.017551651970049313, "max_tfidf": 0.25652653349541166, "idf": 2.7819071727850435}, {"term": "kalitesi", "ngram_size": 1, "term_frequency": 10, "document_frequency": 10, "document_share": 0.1, "mean_tfidf": 0.01677868339151052, "max_tfidf": 0.3650443547501356, "idf": 3.217225244042889}, {"term": "güzel", "ngram_size": 1, "term_frequency": 14, "document_frequency": 14, "document_share": 0.14, "mean_tfidf": 0.016744988642791017, "max_tfidf": 0.5208738377131542, "idf": 2.907070315739049}], "top_bigram_terms": [{"term": "elime ulaştı", "ngram_size": 2, "term_frequency": 7, "document_frequency": 6, "document_share": 0.06, "mean_tfidf": 0.011956337908335904, "max_tfidf": 0.3293297830113283, "idf": 3.6692103677859462}, {"term": "teslim edildi", "ngram_size": 2, "term_frequency": 7, "document_frequency": 7, "document_share": 0.07, "mean_tfidf": 0.011647844262884535, "max_tfidf": 0.3090561850526053, "idf": 3.5356789751614235}, {"term": "sipariş verdim", "ngram_size": 2, "term_frequency": 7, "document_frequency": 7, "document_share": 0.07, "mean_tfidf": 0.006645138533291423, "max_tfidf": 0.1469681644960764, "idf": 3.5356789751614235}, {"term": "gerek yok", "ngram_size": 2, "term_frequency": 6, "document_frequency": 6, "document_share": 0.06, "mean_tfidf": 0.007860424812684539, "max_tfidf": 0.2957788159003946, "idf": 3.6692103677859462}, {"term": "13 14", "ngram_size": 2, "term_frequency": 6, "document_frequency": 6, "document_share": 0.06, "mean_tfidf": 0.005119796155861321, "max_tfidf": 0.11287645021974244, "idf": 3.6692103677859462}, {"term": "iphone 15", "ngram_size": 2, "term_frequency": 6, "document_frequency": 5, "document_share": 0.05, "mean_tfidf": 0.005092312245402498, "max_tfidf": 0.13807319468386425, "idf": 3.8233610476132043}, {"term": "teşekkürler amazon", "ngram_size": 2, "term_frequency": 5, "document_frequency": 5, "document_share": 0.05, "mean_tfidf": 0.01499051232690699, "max_tfidf": 0.7024151882812532, "idf": 3.8233610476132043}, {"term": "gayet güzel", "ngram_size": 2, "term_frequency": 5, "document_frequency": 5, "document_share": 0.05, "mean_tfidf": 0.011613635053277805, "max_tfidf": 0.685050076378008, "idf": 3.8233610476132043}, {"term": "gün sonra", "ngram_size": 2, "term_frequency": 5, "document_frequency": 5, "document_share": 0.05, "mean_tfidf": 0.004994625912034193, "max_tfidf": 0.12355837134916184, "idf": 3.8233610476132043}, {"term": "iphone 11", "ngram_size": 2, "term_frequency": 5, "document_frequency": 5, "document_share": 0.05, "mean_tfidf": 0.004248145412571628, "max_tfidf": 0.11761860991999433, "idf": 3.8233610476132043}]};
     async function loadPayload() {
       try {
@@ -1935,14 +2275,17 @@
       return fallbackData;
     }
     async function init() {
+      renderSmoteComparison(FALLBACK_SMOTE_COMPARISON);
       renderBowTfidfComparison(FALLBACK_BOW_TFIDF_COMPARISON);
       try {
         const data = await loadPayload();
+        data.smote_comparison = data.smote_comparison || FALLBACK_SMOTE_COMPARISON;
         data.bow_tfidf_comparison = data.bow_tfidf_comparison || FALLBACK_BOW_TFIDF_COMPARISON;
         renderSummary(data); renderAspectAnalysis(data.aspect_analysis);
         renderSentiments(data.sentiments, data.summary.review_count);
         renderRatings(data.ratings, data.summary.rated_count); renderTimeline(data.months);
-        renderModels(data.models); renderBowTfidfComparison(data.bow_tfidf_comparison);
+        renderModels(data.models); renderSmoteComparison(data.smote_comparison);
+        renderBowTfidfComparison(data.bow_tfidf_comparison);
         renderTrainingSizeComparison(data.training_size_comparison);
         renderStemmingComparison(data.stemming_comparison);
         allReviews = data.reviews;

@@ -1,5 +1,38 @@
 # Sonuçlar
 
+## SMOTE (Sentetik Azınlık Aşırı Örnekleme) çalışması
+
+100 Amazon iPhone 15 yorumundan türetilen sözlük etiketlerinde belirgin bir
+sınıf dengesizliği vardır: toplamda **75 olumlu (%75)**, **18 nötr (%18)** ve
+**7 olumsuz (%7)** yorum bulunur. Sınıf oranlarını koruyan %80 eğitim / %20 test
+bölmesinde eğitim kümesi **60 olumlu, 14 nötr ve 6 olumsuz** (toplam 80 yorum;
+10:1 çoğunluk/azınlık oranı), bağımsız test kümesi ise **15 olumlu, 4 nötr ve 1
+olumsuz** (toplam 20 yorum) örneğe sahiptir.
+
+Veri sızıntısını (data leakage) önlemek amacıyla **SMOTE (Synthetic Minority
+Over-sampling Technique, $k=5$ komşu)** yalnızca eğitim kümesinin TF-IDF özellik
+uzayına uygulanmıştır:
+- **SMOTE Öncesi Eğitim Kümesi (80 örnek):** 60 olumlu (%75,0), 14 nötr (%17,5), 6 olumsuz (%7,5)
+- **SMOTE Sonrası Eğitim Kümesi (180 örnek):** 60 olumlu (%33,3 · +0 sentetik), 60 nötr (%33,3 · +46 sentetik), 60 olumsuz (%33,3 · +54 sentetik) — toplam **+100 sentetik azınlık örneği**
+- **Bağımsız Test Kümesi (20 örnek · dokunulmadı):** 15 olumlu (%75,0), 4 nötr (%20,0), 1 olumsuz (%5,0)
+
+| Model | SMOTE Durumu | Eğitim doğruluğu | Test doğruluğu | Kesinlik (macro) | Duyarlılık (macro) | F1 (macro) | ROC-AUC (macro) |
+|---|---|---:|---:|---:|---:|---:|---:|
+| Naive Bayes | SMOTE yok | 0,76 | 0,75 | 0,25 | 0,33 | 0,29 | 0,78 |
+| Naive Bayes | SMOTE var | 1,00 | **0,80** | **0,73** | **0,79** | **0,68** | **0,92** |
+| Lojistik Regresyon | SMOTE yok | 0,75 | 0,75 | 0,25 | 0,33 | 0,29 | 0,93 |
+| Lojistik Regresyon | SMOTE var | 0,97 | 0,75 | 0,25 | 0,33 | 0,29 | 0,93 |
+| Support Vector Machine | SMOTE yok | 0,99 | 0,75 | 0,25 | 0,33 | 0,29 | 0,94 |
+| Support Vector Machine | SMOTE var | 1,00 | **0,85** | **0,61** | **0,50** | **0,53** | 0,93 |
+| Random Forest | SMOTE yok | 1,00 | 0,85 | 0,61 | 0,50 | 0,53 | 0,77 |
+| Random Forest | SMOTE var | 1,00 | 0,85 | 0,61 | 0,50 | 0,53 | **0,87** |
+
+### SMOTE Değerlendirmesi
+
+- **Naive Bayes:** SMOTE öncesinde %75'lik çoğunluk sınıfı önsel olasılığı (prior) nedeniyle test kümesindeki 20 yorumun tamamını olumlu tahmin ederken, SMOTE ile sınıflar eşitlendiğinde azınlık sınıflarını yakalamaya başlamış; macro F1 skoru **%28,6'dan %67,8'e (+39,2 puan)**, macro duyarlılığı **%33,3'ten %78,9'a (+45,6 puan)**, test doğruluğu **%75,0'dan %80,0'a (+5,0 puan)** ve ROC-AUC değeri **%77,7'den %92,2'ye (+14,5 puan)** yükselmiştir.
+- **Support Vector Machine (LinearSVC):** Sentetik azınlık örnekleri karar sınırını çoğunluk sınıfından uzaklaştırarak test doğruluğunu **%75,0'dan %85,0'a (+10,0 puan)** ve macro F1 skorunu **%28,6'dan %52,5'e (+24,0 puan)** çıkarmıştır.
+- **Random Forest:** Halihazırda `class_weight="balanced_subsample"` kullandığından %85,0 test doğruluğu ve %52,5 macro F1 değerini korumuş, buna ek olarak macro ROC-AUC sıralama başarısını **%76,6'dan %87,4'e (+10,7 puan)** taşımıştır.
+
 ## Bag of Words (BoW) ve TF-IDF karşılaştırma çalışması
 
 100 Amazon iPhone 15 yorumu üzerinde `stopword_removed_tokens` aşamasından sonra

@@ -80,6 +80,40 @@ def make_bow_tfidf_rows() -> list[dict[str, str]]:
     return rows
 
 
+def make_smote_rows() -> list[dict[str, str]]:
+    fields = (
+        "train_accuracy",
+        "test_accuracy",
+        "test_precision",
+        "test_recall",
+        "test_f1",
+        "test_roc_auc",
+    )
+    rows = []
+    for smote_status, offset in (("SMOTE yok", 0.0), ("SMOTE var", 0.15)):
+        row = {
+            "model": "Naive Bayes",
+            "smote_status": smote_status,
+            "orig_train_count": "80",
+            "resampled_train_count": "180",
+            "synthetic_count": "100",
+            "test_count": "20",
+            "orig_pos_count": "60",
+            "orig_neu_count": "14",
+            "orig_neg_count": "6",
+            "resampled_pos_count": "60",
+            "resampled_neu_count": "60",
+            "resampled_neg_count": "60",
+            "test_pos_count": "15",
+            "test_neu_count": "4",
+            "test_neg_count": "1",
+            "k_neighbors": "5",
+        }
+        row.update({metric: str(0.5 + offset) for metric in fields})
+        rows.append(row)
+    return rows
+
+
 def make_bow_tfidf_term_rows() -> list[dict[str, str]]:
     return [
         {
@@ -282,6 +316,31 @@ class DashboardTests(unittest.TestCase):
                 [{"review": "Ürün çok güzel.", "rating": "", "date": ""}],
                 [],
                 bow_tfidf_rows=make_bow_tfidf_rows()[:1],
+            )
+
+    def test_includes_smote_comparison_and_class_distribution(self) -> None:
+        data = build_dashboard_data(
+            [{"review": "Ürün çok güzel.", "rating": "", "date": ""} for _ in range(10)],
+            [],
+            smote_rows=make_smote_rows(),
+        )
+
+        comparison = data["smote_comparison"]
+        self.assertEqual(comparison["row_count"], 2)
+        self.assertEqual(comparison["train_count"], 80)
+        self.assertEqual(comparison["resampled_train_count"], 180)
+        self.assertEqual(comparison["synthetic_count"], 100)
+        self.assertAlmostEqual(comparison["models"][0]["delta_f1"], 0.15)
+        self.assertEqual(comparison["class_distribution"]["before"]["olumsuz"], 6)
+        self.assertEqual(comparison["class_distribution"]["after"]["olumsuz"], 60)
+        self.assertEqual(comparison["class_distribution"]["synthetic_by_class"]["olumsuz"], 54)
+
+    def test_rejects_unpaired_smote_metrics(self) -> None:
+        with self.assertRaisesRegex(ValueError, "ikisi de bulunmalı"):
+            build_dashboard_data(
+                [{"review": "Ürün çok güzel.", "rating": "", "date": ""}],
+                [],
+                smote_rows=make_smote_rows()[:1],
             )
 
 

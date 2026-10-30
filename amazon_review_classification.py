@@ -5,14 +5,18 @@ from __future__ import annotations
 import argparse
 import csv
 import re
+from collections import Counter
 from pathlib import Path
 from typing import Sequence
 
+import numpy as np
+from scipy import sparse
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.naive_bayes import MultinomialNB
+from sklearn.neighbors import NearestNeighbors
 from sklearn.svm import LinearSVC
 from sklearn.linear_model import LogisticRegression
 
@@ -24,9 +28,35 @@ DEFAULT_STEMMING_OUTPUT = Path("classification_stemming_comparison.csv")
 DEFAULT_TRAINING_SIZE_OUTPUT = Path("classification_training_size_comparison.csv")
 DEFAULT_BOW_TFIDF_OUTPUT = Path("classification_bow_tfidf_comparison.csv")
 DEFAULT_BOW_TFIDF_TERMS_OUTPUT = Path("bow_tfidf_top_terms.csv")
+DEFAULT_SMOTE_OUTPUT = Path("classification_smote_comparison.csv")
 DEFAULT_BERT_MODEL = "dbmdz/bert-base-turkish-cased"
 TRAINING_SIZE_PROPORTIONS = (0.6, 0.65, 0.7, 0.75, 0.8, 0.85)
 VECTORIZER_NAMES = ("Bag of Words (BoW)", "TF-IDF")
+SMOTE_CONDITIONS = ("SMOTE yok", "SMOTE var")
+SMOTE_COMPARISON_FIELDS = (
+    "smote_status",
+    "model",
+    "train_accuracy",
+    "test_accuracy",
+    "test_precision",
+    "test_recall",
+    "test_f1",
+    "test_roc_auc",
+    "orig_train_count",
+    "resampled_train_count",
+    "synthetic_count",
+    "test_count",
+    "orig_pos_count",
+    "orig_neu_count",
+    "orig_neg_count",
+    "resampled_pos_count",
+    "resampled_neu_count",
+    "resampled_neg_count",
+    "test_pos_count",
+    "test_neu_count",
+    "test_neg_count",
+    "k_neighbors",
+)
 BOW_TFIDF_TERM_FIELDS = (
     "term",
     "ngram_size",
@@ -686,6 +716,161 @@ def write_bow_tfidf_comparison(
         writer.writerows(results)
 
 
+def apply_smote(
+    features: object,
+    labels: Sequence[str],
+    k_neighbors: int = 5,
+    random_state: int = 42,
+) -> tuple[object, list[str]]:
+    """Apply Chawla et al. (2002) SMOTE oversampling to minority classes in the feature matrix."""
+    if k_neighbors < 1:
+        raise ValueError("k_neighbors must be at least 1.")
+    counts = Counter(labels)
+    if not counts:
+        raise ValueError("Labels cannot be empty for SMOTE.")
+    max_count = max(counts.values())
+    y_array = np.asarray(list(labels))
+    rng = np.random.RandomState(random_state)
+
+    ordered_labels = [label for label in LABELS if label in counts] + [
+        label for label in sorted(counts) if label not in LABELS
+    ]
+    synthetic_blocks: list[object] = []
+    synthetic_labels: list[str] = []
+
+    for label in ordered_labels:
+        count = counts[label]
+        n_to_generate = max_count - count
+        if n_to_generate <= 0:
+            continue
+        class_indices = np.flatnonzero(y_array == label)
+        class_samples = features[class_indices]  # type: ignore[index]
+        if count == 1:
+            replicated = class_samples[np.zeros(n_to_generate, dtype=int)]
+            synthetic_blocks.append(replicated)
+            synthetic_labels.extend([label] * n_to_generate)
+            continue
+
+        effective_k = min(k_neighbors, count - 1)
+        neighbor_finder = NearestNeighbors(n_neighbors=effective_k + 1)
+        neighbor_finder.fit(class_samples)
+        neighbor_indices = neighbor_finder.kneighbors(
+            class_samples, return_distance=False
+        )[:, 1:]
+
+        base_choices = rng.randint(0, count, size=n_to_generate)
+        neighbor_choices = rng.randint(0, effective_k, size=n_to_generate)
+        chosen_neighbors = neighbor_indices[base_choices, neighbor_choices]
+        gaps = rng.uniform(0.0, 1.0, size=(n_to_generate, 1))
+
+        base_vectors = class_samples[base_choices]
+        diff_vectors = class_samples[chosen_neighbors] - base_vectors
+        if sparse.issparse(features):
+            synthetic = base_vectors + diff_vectors.multiply(gaps)
+        else:
+            synthetic = base_vectors + diff_vectors * gaps
+        synthetic_blocks.append(synthetic)
+        synthetic_labels.extend([label] * n_to_generate)
+
+    if not synthetic_blocks:
+        return features, list(labels)
+    if sparse.issparse(features):
+        resampled_features = sparse.vstack([features, *synthetic_blocks], format="csr")
+    else:
+        resampled_features = np.vstack([features, *synthetic_blocks])
+    resampled_labels = list(labels) + synthetic_labels
+    return resampled_features, resampled_labels
+
+
+def run_smote_comparison(
+    texts: Sequence[str],
+    labels: Sequence[str],
+    k_neighbors: int = 5,
+    random_state: int = 42,
+) -> list[dict[str, str | float | int]]:
+    """Compare classical TF-IDF models with and without SMOTE oversampling on the training split."""
+    x_train, x_test, y_train, y_test = split_data(
+        texts, labels, random_state=random_state
+    )
+    vectorizer = TfidfVectorizer(
+        ngram_range=(1, 2), max_features=20_000, sublinear_tf=True
+    )
+    train_vectors = vectorizer.fit_transform(x_train)
+    test_vectors = vectorizer.transform(x_test)
+
+    resampled_vectors, resampled_y_train = apply_smote(
+        train_vectors, y_train, k_neighbors=k_neighbors, random_state=random_state
+    )
+
+    orig_counts = Counter(y_train)
+    resampled_counts = Counter(resampled_y_train)
+    test_counts = Counter(y_test)
+    shared_stats = {
+        "orig_train_count": len(y_train),
+        "resampled_train_count": len(resampled_y_train),
+        "synthetic_count": len(resampled_y_train) - len(y_train),
+        "test_count": len(y_test),
+        "orig_pos_count": orig_counts.get("olumlu", 0),
+        "orig_neu_count": orig_counts.get("nötr", 0),
+        "orig_neg_count": orig_counts.get("olumsuz", 0),
+        "resampled_pos_count": resampled_counts.get("olumlu", 0),
+        "resampled_neu_count": resampled_counts.get("nötr", 0),
+        "resampled_neg_count": resampled_counts.get("olumsuz", 0),
+        "test_pos_count": test_counts.get("olumlu", 0),
+        "test_neu_count": test_counts.get("nötr", 0),
+        "test_neg_count": test_counts.get("olumsuz", 0),
+        "k_neighbors": k_neighbors,
+    }
+
+    results: list[dict[str, str | float | int]] = []
+    for smote_status, x_curr, y_curr in (
+        ("SMOTE yok", train_vectors, y_train),
+        ("SMOTE var", resampled_vectors, resampled_y_train),
+    ):
+        models = (
+            ("Naive Bayes", MultinomialNB()),
+            ("Lojistik Regresyon", LogisticRegression(max_iter=2_000, random_state=random_state)),
+            ("Support Vector Machine", LinearSVC(random_state=random_state)),
+            (
+                "Random Forest",
+                RandomForestClassifier(
+                    n_estimators=300,
+                    class_weight="balanced_subsample",
+                    random_state=random_state,
+                    n_jobs=-1,
+                ),
+            ),
+        )
+        for name, model in models:
+            model.fit(x_curr, y_curr)
+            model_metrics = _model_result(
+                name, model, x_curr, y_curr, test_vectors, y_test
+            )
+            results.append(
+                {
+                    "smote_status": smote_status,
+                    **model_metrics,
+                    **shared_stats,
+                }
+            )
+    return results
+
+
+def write_smote_comparison(
+    results: Sequence[dict[str, str | float | int]],
+    output_path: Path,
+) -> None:
+    """Save paired SMOTE comparison metrics and class balance stats to CSV."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8-sig", newline="") as output_file:
+        writer = csv.DictWriter(
+            output_file,
+            fieldnames=SMOTE_COMPARISON_FIELDS,
+        )
+        writer.writeheader()
+        writer.writerows(results)
+
+
 def write_bow_tfidf_terms(
     rows: Sequence[dict[str, str | int | float]],
     output_path: Path,
@@ -713,6 +898,8 @@ def print_results(results: Sequence[dict[str, str | float]]) -> None:
             model_label = f"{model_label} ({result['preprocessing']})"
         if "vectorizer" in result:
             model_label = f"{model_label} ({result['vectorizer']})"
+        if "smote_status" in result:
+            model_label = f"{model_label} ({result['smote_status']})"
         if "training_size" in result:
             model_label = f"{model_label} ({result['training_size']:.0%} eğitim)"
         print(
@@ -773,6 +960,17 @@ def main() -> None:
         help="CSV path for the Bag of Words and TF-IDF top terms.",
     )
     parser.add_argument(
+        "--compare-smote",
+        action="store_true",
+        help="Compare the four classical TF-IDF models with and without SMOTE oversampling, then exit.",
+    )
+    parser.add_argument(
+        "--smote-output",
+        type=Path,
+        default=DEFAULT_SMOTE_OUTPUT,
+        help="CSV path for the SMOTE comparison.",
+    )
+    parser.add_argument(
         "--bert-model",
         default=DEFAULT_BERT_MODEL,
         help="Hugging Face Turkish BERT model identifier or local model directory.",
@@ -802,6 +1000,13 @@ def main() -> None:
         print_results(comparison)
         print(f"\nBoW vs TF-IDF model comparison saved: {args.bow_tfidf_output}")
         print(f"BoW vs TF-IDF top terms saved: {args.bow_tfidf_terms_output}")
+        return
+
+    if args.compare_smote:
+        comparison = run_smote_comparison(texts, labels)
+        write_smote_comparison(comparison, args.smote_output)
+        print_results(comparison)
+        print(f"\nSMOTE comparison saved: {args.smote_output}")
         return
 
     x_train, x_test, y_train, y_test = split_data(texts, labels)
