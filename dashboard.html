@@ -2556,6 +2556,7 @@
       buttons.forEach(btn => {
         btn.addEventListener("click", () => {
           activatePanel(btn.dataset.panel);
+          window.scrollTo({ top: 0, behavior: "smooth" });
         });
       });
 
