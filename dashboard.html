@@ -49,7 +49,7 @@
     .chart { width: 100%; min-height: 210px; }
     .chart svg { display: block; width: 100%; height: 220px; overflow: visible; }
     #aspect-chart svg { height: 360px; }
-    #model-chart svg { height: 270px; }
+    #model-chart svg { height: auto; min-height: 180px; max-height: 480px; }
     #training-size-chart svg { height: 340px; }
     .donut-layout { display: flex; min-height: 220px; align-items: center; justify-content: center; gap: clamp(22px, 7vw, 70px); }
     .donut { position: relative; display: grid; width: 158px; height: 158px; flex: 0 0 158px; place-items: center; border-radius: 50%; }
@@ -64,6 +64,18 @@
     .model-legend { display: flex; flex-wrap: wrap; gap: 16px; margin: 3px 0 0; color: #69748a; font-size: 11px; }
     .model-legend-item { display: inline-flex; align-items: center; gap: 6px; }
     .model-legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+    .model-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 14px; margin-bottom: 12px; padding: 10px 14px; background: #f8fafc; border: 1px solid var(--line); border-radius: 10px; }
+    .model-toolbar-left { display: flex; align-items: center; gap: 8px; }
+    .toolbar-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+    .model-toolbar-pills { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    .metric-toggle-btn { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border: 1px solid var(--line); border-radius: 20px; background: #fff; color: #64748b; font-size: 11px; font-weight: 600; cursor: pointer; transition: all .15s ease; user-select: none; }
+    .metric-toggle-btn:hover { border-color: #cbd5e1; color: var(--ink); }
+    .metric-toggle-btn.active { border-color: var(--btn-color, var(--blue)); background: rgba(var(--btn-rgb, 88, 101, 232), 0.09); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
+    .metric-toggle-btn .metric-dot { width: 8px; height: 8px; border-radius: 50%; background: #cbd5e1; transition: background .15s ease; }
+    .metric-toggle-btn.active .metric-dot { background: var(--btn-color, var(--blue)); }
+    .metric-toggle-btn.all-btn { border-radius: 8px; font-weight: 700; padding: 5px 11px; }
+    .metric-toggle-btn.all-btn.active { border-color: var(--blue); background: var(--blue); color: #fff; }
+    .metric-toggle-btn.all-btn .btn-check { font-size: 11px; font-weight: 800; }
     .reviews-toolbar { display: flex; gap: 9px; }
     input, select { min-height: 35px; border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; background: #fff; color: var(--ink); font: inherit; font-size: 12px; }
     input { width: min(240px, 38vw); }
@@ -91,6 +103,10 @@
     .metric-gain.positive { color: #158363; }
     .metric-gain.negative { color: #bd505a; }
     .metric-gain.neutral { color: var(--muted); }
+    .model-notes { margin-top: 16px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 12px; background: #fafbfe; display: grid; gap: 14px; }
+    .model-notes-section h3 { margin: 0 0 8px; font-size: 13px; font-weight: 700; color: var(--ink); letter-spacing: -.01em; }
+    .model-notes-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; font-size: 12px; line-height: 1.55; color: #4d586c; }
+    .model-notes-list li strong { color: var(--ink); }
     .pagination { display: flex; justify-content: space-between; align-items: center; padding-top: 12px; color: var(--muted); font-size: 11px; }
     button { border: 1px solid var(--line); border-radius: 7px; padding: 7px 11px; background: white; color: var(--ink); cursor: pointer; }
     button:disabled { opacity: .45; cursor: default; }
@@ -154,7 +170,36 @@
       </article>
       <article class="panel wide">
         <div class="panel-heading"><div><h2>Sınıflandırma modelleri</h2><p class="panel-note">Eğitim/test doğruluğu ve test F1 · CSV değerleri yüzde ölçeğinde</p></div></div>
+        <div class="model-toolbar" id="model-metric-toolbar">
+          <div class="model-toolbar-left">
+            <span class="toolbar-label">Metrikler</span>
+          </div>
+          <div class="model-toolbar-pills" id="model-metric-pills"></div>
+        </div>
         <div class="chart" id="model-chart"></div>
+        <div class="comparison-table-wrap" id="model-table"></div>
+        <div class="model-notes" id="model-explanation">
+          <div class="model-notes-section">
+            <h3>Sınıflandırma Modellerinin Tanımları</h3>
+            <ul class="model-notes-list">
+              <li><strong>Naive Bayes:</strong> Bayes olasılık teoremine dayanan ve kelimelerin sınıflardan bağımsız olduğunu varsayan olasılıksal bir metin sınıflandırıcıdır. Az veriyle çok hızlı eğitilir; doğal dil işlemede güçlü ve güvenilir bir başlangıç/kıyaslama (baseline) modelidir.</li>
+              <li><strong>Lojistik Regresyon (Logistic Regression):</strong> TF-IDF ile ağırlıklandırılmış kelime frekanslarının doğrusal kombinasyonunu sigmoid/softmax fonksiyonu üzerinden sınıf olasılıklarına dönüştüren doğrusal modeldir; dengeli, kararlı ve yorumlanabilir sonuçlar sunar.</li>
+              <li><strong>Destek Vektör Makineleri (Support Vector Machine - SVM / LinearSVC):</strong> Farklı duygu sınıflarını (olumlu, nötr, olumsuz) birbirinden ayıran en geniş marjlı (en yüksek aralıklı) karar sınırını (hiper-düzlem) belirler. Yüksek boyutlu seyrek metin uzayında aşırı öğrenmeye karşı dirençlidir.</li>
+              <li><strong>Rastgele Orman (Random Forest):</strong> Verinin ve kelime özelliklerinin farklı alt kümeleriyle eğitilmiş çok sayıda bağımsız karar ağacının çoğunluk oylamasıyla (ensemble / topluluk) karar veren algoritmadır; karmaşık kelime ilişkilerini yakalar ve tekil karar ağaçlarına göre varyansı düşürür.</li>
+              <li><strong>Türkçe BERT (dbmdz/bert-base-turkish-cased):</strong> Transformatör (Transformer) mimarisini kullanan ve geniş Türkçe metin derlemleri üzerinde önceden eğitilmiş derin öğrenme dil modelidir. Kelimeleri tekil frekanslar yerine cümlenin bütünü içindeki iki yönlü bağlamı (context) ile anlayarak duygu çıkarımı yapar.</li>
+            </ul>
+          </div>
+          <div class="model-notes-section">
+            <h3>Metriklerin ve Yüzdelerin (% Değerlerinin) Anlamları</h3>
+            <ul class="model-notes-list">
+              <li><strong>Eğitim Doğruluğu (% / Train Accuracy):</strong> Modelin öğrenme aşamasında gördüğü eğitim kümesindeki yorumları doğru sınıflandırma oranıdır. Modelin eğitim verisini ne kadar kavradığını gösterir; %100 olması modelin veriyi tam öğrendiğini ancak ezberleme (aşırı öğrenme / overfitting) riski de taşıyabileceğini işaret eder.</li>
+              <li><strong>Test Doğruluğu (% / Test Accuracy):</strong> Modelin eğitim aşamasında hiç görmediği bağımsız test kümesindeki (%20) yorumları doğru tahmin etme oranıdır (Doğru Tahmin Sayısı / Toplam Test Yorumu). Modelin yeni yorumlara genelleme kabiliyetini ölçen temel metriktir.</li>
+              <li><strong>Test F1 Skoru (% / Macro F1):</strong> Kesinlik (Precision) ve Duyarlılık (Recall) metriklerinin harmonik ortalamasıdır. Yorum verilerinde olumlu yorumların nötr ve olumsuzlara göre çok baskın olduğu dengesiz sınıflarda test doğruluğu tek başına yanıltıcı olabilir. Macro F1, her duygu sınıfına eşit ağırlık vererek modelin dengeli ve tarafsız başarısını ölçer.</li>
+              <li><strong>Kesinlik (% / Macro Precision) ve Duyarlılık (% / Macro Recall):</strong> Kesinlik, modelin bir sınıf için (ör. "olumlu") yaptığı tahminlerin gerçekte ne kadarının doğru olduğunu; Duyarlılık ise gerçekte var olan sınıf örneklerinin model tarafından ne kadarının yakalandığını (kaçırılmadığını) ifade eder.</li>
+              <li><strong>ROC-AUC (% / Macro ROC-AUC):</strong> Modelin sınıfları birbirinden ayırt etme ve doğru olasılık sıralaması yapma gücüdür. %50 rastgele tahmini, %100 ise sınıfların kusursuz ayrıştırıldığını ifade eder.</li>
+            </ul>
+          </div>
+        </div>
       </article>
       <article class="panel wide">
         <div class="panel-heading">
@@ -357,11 +402,77 @@
       });
       target.replaceChildren(svg);
     }
-    function renderModels(models) {
+    const MODEL_METRICS = [
+      { key: "train_accuracy", label: "Eğitim doğruluğu", color: "#5865e8", rgb: "88,101,232" },
+      { key: "test_accuracy",  label: "Test doğruluğu",   color: "#15a88a", rgb: "21,168,138" },
+      { key: "test_f1",        label: "Test F1",           color: "#ed9c35", rgb: "237,156,53" },
+      { key: "test_precision", label: "Kesinlik",          color: "#9a72d5", rgb: "154,114,213" },
+      { key: "test_recall",    label: "Duyarlılık",        color: "#45a4b7", rgb: "69,164,183" },
+      { key: "test_roc_auc",   label: "ROC-AUC",           color: "#d85b72", rgb: "216,91,114" }
+    ];
+    let activeModelMetrics = new Set(MODEL_METRICS.map(m => m.key));
+    let cachedModels = [];
+
+    function buildModelMetricToolbar() {
+      const pillsContainer = document.querySelector("#model-metric-pills");
+      if (!pillsContainer) return;
+      pillsContainer.replaceChildren();
+
+      // "Tümü" butonu
+      const allBtn = document.createElement("button");
+      allBtn.type = "button";
+      allBtn.id = "model-metric-all";
+      allBtn.className = "metric-toggle-btn all-btn" + (activeModelMetrics.size === MODEL_METRICS.length ? " active" : "");
+      const checkSpan = document.createElement("span"); checkSpan.className = "btn-check"; checkSpan.textContent = activeModelMetrics.size === MODEL_METRICS.length ? "✓" : "○";
+      const allLabel = document.createElement("span"); allLabel.textContent = "Tümü";
+      allBtn.append(checkSpan, allLabel);
+      allBtn.addEventListener("click", () => {
+        if (activeModelMetrics.size === MODEL_METRICS.length) {
+          // Tümü aktifse hiçbirini bırakma — en az birini seçili tut
+          return;
+        }
+        activeModelMetrics = new Set(MODEL_METRICS.map(m => m.key));
+        buildModelMetricToolbar();
+        drawModelChart(cachedModels);
+      });
+      pillsContainer.append(allBtn);
+
+      // Her metrik için toggle butonu
+      MODEL_METRICS.forEach(metric => {
+        const isActive = activeModelMetrics.has(metric.key);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.id = `model-metric-btn-${metric.key}`;
+        btn.className = "metric-toggle-btn" + (isActive ? " active" : "");
+        btn.style.setProperty("--btn-color", metric.color);
+        btn.style.setProperty("--btn-rgb", metric.rgb);
+        const dot = document.createElement("span"); dot.className = "metric-dot";
+        const lbl = document.createElement("span"); lbl.textContent = metric.label;
+        btn.append(dot, lbl);
+        btn.addEventListener("click", () => {
+          if (activeModelMetrics.has(metric.key)) {
+            if (activeModelMetrics.size === 1) return; // en az 1 metrik seçili kalsın
+            activeModelMetrics.delete(metric.key);
+          } else {
+            activeModelMetrics.add(metric.key);
+          }
+          buildModelMetricToolbar();
+          drawModelChart(cachedModels);
+        });
+        pillsContainer.append(btn);
+      });
+    }
+
+    function drawModelChart(models) {
       const target = document.querySelector("#model-chart");
       if (!models.length) { target.innerHTML = '<div class="empty">Model metrikleri bulunamadı.</div>'; return; }
-      const width = 900, rowHeight = 45, height = Math.max(210, models.length * rowHeight + 43);
-      const left = 190, plotWidth = 570, svg = svgElement("svg", { viewBox: `0 0 ${width} ${height}`, role: "img", "aria-label": "Model doğruluk ve F1 karşılaştırması" });
+      const visibleMetrics = MODEL_METRICS.filter(m => activeModelMetrics.has(m.key));
+      const barCount = visibleMetrics.length;
+      const barH = 9, barGap = 4;
+      const rowHeight = barCount * (barH + barGap) + 18;
+      const width = 900, height = Math.max(210, models.length * rowHeight + 43);
+      const left = 190, plotWidth = 570;
+      const svg = svgElement("svg", { viewBox: `0 0 ${width} ${height}`, role: "img", "aria-label": "Model doğruluk ve F1 karşılaştırması" });
       for (let tick = 0; tick <= 4; tick++) {
         const x = left + plotWidth * tick / 4;
         svg.append(svgElement("line", { x1: x, y1: 18, x2: x, y2: height - 22, stroke: "#edf0f5" }));
@@ -370,23 +481,59 @@
       models.forEach((model, index) => {
         const y = 20 + index * rowHeight;
         const label = model.model.length > 27 ? `${model.model.slice(0, 25)}…` : model.model;
-        textNode(svg, left - 12, y + 14, label, { anchor: "end", fill: "#4d586c", size: 11 });
-        [["train_accuracy", "#5865e8"], ["test_accuracy", "#15a88a"], ["test_f1", "#ed9c35"]].forEach(([key, color], series) => {
-          const value = model[key];
-          const barY = y + series * 8;
-          svg.append(svgElement("rect", { x: left, y: barY, width: plotWidth * value, height: 6, rx: 3, fill: color }));
-          if (series === 2) textNode(svg, left + plotWidth * value + 6, barY + 6, `${formatNumber(value * 100)}%`, { fill: "#4d586c", size: 9 });
+        textNode(svg, left - 12, y + Math.floor(rowHeight / 2) - 4, label, { anchor: "end", fill: "#4d586c", size: 11 });
+        visibleMetrics.forEach((metric, series) => {
+          const value = model[metric.key] ?? 0;
+          const barY = y + series * (barH + barGap);
+          svg.append(svgElement("rect", { x: left, y: barY, width: plotWidth, height: barH, rx: 3, fill: "#f0f2f7" }));
+          svg.append(svgElement("rect", { x: left, y: barY, width: plotWidth * value, height: barH, rx: 3, fill: metric.color }));
+          textNode(svg, left + plotWidth * value + 6, barY + barH - 1, `${formatNumber(value * 100, 1)}%`, { fill: "#4d586c", size: 9, weight: 600 });
         });
       });
       target.replaceChildren(svg);
+      // Grafik altı legend
       const legend = document.createElement("div"); legend.className = "model-legend";
-      [["Eğitim doğruluğu", "#5865e8"], ["Test doğruluğu", "#15a88a"], ["Test F1", "#ed9c35"]].forEach(([label, color]) => {
+      visibleMetrics.forEach(metric => {
         const item = document.createElement("span"); item.className = "model-legend-item";
-        const dot = document.createElement("span"); dot.className = "model-legend-dot"; dot.style.background = color;
-        const caption = document.createElement("span"); caption.textContent = label;
+        const dot = document.createElement("span"); dot.className = "model-legend-dot"; dot.style.background = metric.color;
+        const caption = document.createElement("span"); caption.textContent = metric.label;
         item.append(dot, caption); legend.append(item);
       });
       target.append(legend);
+    }
+
+    function renderModels(models) {
+      cachedModels = models;
+      activeModelMetrics = new Set(MODEL_METRICS.map(m => m.key));
+      buildModelMetricToolbar();
+      drawModelChart(models);
+
+      const tableTarget = document.querySelector("#model-table");
+      if (tableTarget) {
+        const table = document.createElement("table"); table.className = "comparison-table";
+        const header = document.createElement("thead");
+        const headingRow = document.createElement("tr");
+        ["Model", "Eğitim doğruluğu", "Test doğruluğu", "Kesinlik (macro)", "Duyarlılık (macro)", "F1 (macro)", "ROC-AUC (macro)"].forEach(label => {
+          const cell = document.createElement("th"); cell.textContent = label; headingRow.append(cell);
+        });
+        header.append(headingRow);
+        const body = document.createElement("tbody");
+        models.forEach(model => {
+          const row = document.createElement("tr");
+          const modelCell = document.createElement("td"); modelCell.textContent = model.model;
+          modelCell.style.fontWeight = "600";
+          row.append(modelCell);
+          for (const metric of ["train_accuracy", "test_accuracy", "test_precision", "test_recall", "test_f1", "test_roc_auc"]) {
+            const cell = document.createElement("td");
+            cell.textContent = `%${formatNumber(model[metric] * 100, 1)}`;
+            if (metric === "test_f1") cell.className = "metric-gain";
+            row.append(cell);
+          }
+          body.append(row);
+        });
+        table.append(header, body);
+        tableTarget.replaceChildren(table);
+      }
     }
     function renderTrainingSizeComparison(comparison) {
       const target = document.querySelector("#training-size-chart");
@@ -521,7 +668,7 @@
           const barY = y + offset * 17;
           svg.append(svgElement("rect", { x: left, y: barY, width: plotWidth * result.test_accuracy, height: 6, rx: 3, fill: color }));
           svg.append(svgElement("rect", { x: left, y: barY + 7, width: plotWidth * result.test_f1, height: 6, rx: 3, fill: color, opacity: .48 }));
-          textNode(svg, left + plotWidth * Math.max(result.test_accuracy, result.test_f1) + 7, barY + 9, `${formatNumber(result.test_accuracy * 100)} / ${formatNumber(result.test_f1 * 100)}`, { fill: "#4d586c", size: 9 });
+          textNode(svg, left + plotWidth * Math.max(result.test_accuracy, result.test_f1) + 7, barY + 9, `${formatNumber(result.test_accuracy * 100, 1)}% / ${formatNumber(result.test_f1 * 100, 1)}%`, { fill: "#4d586c", size: 9, weight: 600 });
         });
       });
       target.replaceChildren(svg);
